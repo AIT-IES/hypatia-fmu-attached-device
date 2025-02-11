@@ -7,8 +7,30 @@
 #include <import/base/include/ModelManager.h>
 #include <import/base/include/FMUModelExchange_v2.h>
 
+#include <boost/filesystem.hpp>
+#include <sstream>
+
 using namespace std;
 using namespace fmi_2_0;
+using namespace boost::filesystem;
+
+namespace {
+
+string getFileUriFromPath(const path& path)
+{
+    stringstream str;
+    str << "file://" << path.string();
+	return str.str();
+}
+
+bool toBoolean(const std::string & v)
+{
+    return !v.empty () &&
+        (strcasecmp (v.c_str (), "true") == 0 ||
+         atoi (v.c_str ()) != 0);
+}
+
+}
 
 namespace ns3 {
 
@@ -66,14 +88,17 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
             printf("  > Read FMU configuration for enpoint %ld from %s\n", endpoint, fmuConfigFileName.c_str());
             map<string, string> fmuConfig = read_config(fmuConfigFileName);
 
-            string fmuDirUri = get_param_or_fail("fmu_dir_uri", fmuConfig);
-            printf("    >> Load extracted FMU from %s\n", fmuDirUri.c_str());
+            path fmuDir = get_param_or_fail("fmu_dir", fmuConfig);
+            path fmuDirAbs = fmuDir.is_absolute() ? fmuDir :
+                canonical(absolute(fmuDir, basicSimulation->GetRunDir()));
 
-            NS_ABORT_MSG_UNLESS(dir_exists(getPathFromFileUri(fmuDirUri)), 
-                format_string("Not a directory: %s", getPathFromFileUri(fmuDirUri).c_str()));
-            NS_ABORT_MSG_UNLESS(file_exists(getPathFromFileUri(fmuDirUri) + "/modelDescription.xml"),
+            printf("    >> Load extracted FMU from %s\n", fmuDirAbs.string().c_str());
+
+            NS_ABORT_MSG_UNLESS(dir_exists(fmuDirAbs.string().c_str()), 
+                format_string("Not a directory: %s", fmuDirAbs.string().c_str()));
+            NS_ABORT_MSG_UNLESS(file_exists((fmuDirAbs / "/modelDescription.xml").string().c_str()),
                 "Not a valid FMU: no model descritpion found");
-            NS_ABORT_MSG_UNLESS(dir_exists(getPathFromFileUri(fmuDirUri) + "/binaries"), 
+            NS_ABORT_MSG_UNLESS(dir_exists((fmuDirAbs / "/binaries").string().c_str()), 
                 "Not a valid FMU: no binaries folder found");
 
             double fmuStartTimeInS = parse_positive_double(get_param_or_default("start_time_in_s", "0.0", fmuConfig));
@@ -81,6 +106,7 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
             bool loggingOn = toBoolean(get_param_or_fail("logging_on", fmuConfig));
             string modelIdentifier = get_param_or_fail("model_identifier", fmuConfig);
 
+            string fmuDirUri = getFileUriFromPath(fmuDirAbs);
             ModelManager::LoadFMUStatus status = ModelManager::failed;
             FMUType type = invalid;
             status = ModelManager::loadFMU(fmuDirUri, loggingOn, type, modelIdentifier);
@@ -127,22 +153,5 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
 
     std::cout << std::endl;
 }
-
-string FmuAttachedDeviceFactory::getPathFromFileUri(const string& uri) const
-{
-    if ( uri.substr(0, 7) != "file://" ) {
-        throw runtime_error(format_string("Invalid file URI: %s", uri.c_str()));
-    }
-
-	return uri.substr(7, uri.size());
-}
-
-bool FmuAttachedDeviceFactory::toBoolean(const std::string & v) const
-{
-    return !v.empty () &&
-        (strcasecmp (v.c_str (), "true") == 0 ||
-         atoi (v.c_str ()) != 0);
-}
-
 
 }

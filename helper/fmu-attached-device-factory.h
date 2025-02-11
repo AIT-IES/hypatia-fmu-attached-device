@@ -44,9 +44,6 @@ private:
 
     void initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulation, Ptr<Topology> topology, 
         FmuAttachedDevice::InitCallbackType initCallback, FmuAttachedDevice::DoStepCallbackType doStepCallback);
-
-	std::string getPathFromFileUri(const std::string& url) const;
-    bool toBoolean(const std::string& v) const;
 };
 
 }

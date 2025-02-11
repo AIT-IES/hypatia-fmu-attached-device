@@ -2,6 +2,13 @@
 
 import os, subprocess
 
+REQUIRED_BOOST_LIBS = ['filesystem']
+
+def required_boost_libs( conf ):
+    for lib in REQUIRED_BOOST_LIBS:
+        if lib not in conf.env[ 'REQUIRED_BOOST_LIBS' ]:
+            conf.env[ 'REQUIRED_BOOST_LIBS' ] += REQUIRED_BOOST_LIBS
+
 def configure( conf ):
     # Check if Boost is abailable.
     if not conf.env['BOOST_VERSION']:
@@ -56,6 +63,7 @@ def configure( conf ):
     conf.env.append_value( 'LINKFLAGS', [
         '-Wl,--no-as-needed', # Needed on some Linux variants.
         '-lfmippim', # Add shared library implementing the back-end.
+        '-lboost_filesystem'
         ] )
 
     # Add directory containing the shared library implementing the back-end to the list of module paths.

@@ -93,7 +93,7 @@ fmu_config_files=map(1252:simple-fmu-attached-device.txt)
 In the FMU config files, the following properties are expected:
 
 + *model_identifier*: FMU model identifier (string)
-+ *fmu_dir_uri*: URI for the directory containing the extracted FMU (string)
++ *fmu_dir*: path (relative to run directory or absolute) to the directory containing the extracted FMU (string)
 + *start_time_in_s*: FMU model start time in seconds (double)
 + *comm_step_size_in_s*: FMU model communication step size in seconds (double)
 + *logging_on*: turn on/off the logger of the FMU model (boolean)
