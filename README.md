@@ -1,13 +1,12 @@
-# FMU-attached Devices for ns-3
+# FMU-attached Devices for Hypatia
 
 ## About
 
 This package provides [ns-3](https://www.nsnam.org/) application layer models that use a [Functional Mock-up Unit](https://fmi-standard.org/) (FMU) for Co-Simulation (FMI 2.0) to compute its internal state.
-Examples of its use are available [here](https://github.com/AIT-IES/hypatia-fmu-attached-device-demo.git).
-
-**NOTE**:
 This package is primarily intended to work with the ns-3 simulator provided by the [Hpyatia](https://github.com/snkas/hypatia) simulator.
 However, it can also be used with standard ns-3 distrubtions.
+
+Examples for the usage are available [here](https://github.com/AIT-IES/hypatia-fmu-attached-device-demo.git).
 
 ## Quick start (Ubuntu 20.04)
 
