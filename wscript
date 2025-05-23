@@ -80,9 +80,10 @@ def build(bld):
     module = bld.create_ns3_module('fmu-attached-device', ['core', 'basic-sim'])
     module.source = [
         'model/fmu-attached-device.cc',
+        'model/fmu-shared-device.cc',
         'model/device-client.cc',
-        'helper/fmu-attached-device-helper.cc',
         'helper/fmu-attached-device-factory.cc',
+        'helper/fmu-shared-device-factory.cc',
         'helper/device-client-helper.cc',
         'helper/device-client-factory.cc',
         ]
@@ -96,9 +97,12 @@ def build(bld):
     headers.module = 'fmu-attached-device'
     headers.source = [
         'model/fmu-attached-device.h',
+        'model/fmu-shared-device.h',
         'model/device-client.h',
-        'helper/fmu-attached-device-helper.h',
+        'helper/fmu-util.h',
+        'helper/fmu-device-helper.h',
         'helper/fmu-attached-device-factory.h',
+        'helper/fmu-shared-device-factory.h',
         'helper/device-client-helper.h',
         'helper/device-client-factory.h',
         ]

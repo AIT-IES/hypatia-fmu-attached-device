@@ -13,6 +13,7 @@
 #include "ns3/string.h"
 #include "ns3/boolean.h"
 #include "ns3/exp-util.h"
+#include "ns3/fmu-util.h"
 
 #include "fmu-attached-device.h"
 
@@ -103,7 +104,6 @@ namespace ns3 {
         m_fmu = 0;
     }
 
-
     void
     FmuAttachedDevice::defaultInitCallbackImpl(
         Ptr<RefFMU> fmu, uint64_t nodeId, 
@@ -112,7 +112,7 @@ namespace ns3 {
         fmippStatus status = fmippFatal;
 
         // Instantiate the FMU model.
-        status = fmu->instantiate(modelIdentifier + to_string(nodeId), 0., false, false);
+        status = fmu->instantiate(fmu->instanceName(), 0., false, false);
         NS_ABORT_MSG_UNLESS(status == fmippOK, "instantiation of FMU failed");
 
         // Initialize the FMU model.
@@ -124,17 +124,20 @@ namespace ns3 {
     FmuAttachedDevice::defaultDoStepCallbackImpl(
         Ptr<RefFMU> fmu, uint64_t nodeId, const std::string& payload, const double& time, const double& commStepSize
     ) {
+        double tt = fmu->getTime();
+        uint32_t nSteps = 0;
+
         // Integrate FMU model until current simulation time is reached.
         // Iterate in case events are encountered.
-        double tt = fmu->getTime();
         do {
             fmippStatus status = fmu->doStep(tt, commStepSize, true);
             NS_ABORT_MSG_UNLESS(status == fmippOK, "stepping of FMU failed");
             tt += commStepSize;
+            ++nSteps;
         } while (tt < time);
 
         // Return default message.
-        return string("FMU model stepped until t=") + to_string(tt);
+        return string("FMU model stepped ") + to_string(nSteps) + string(" times until t=") + to_string(tt);
     }
     
     void
@@ -159,13 +162,7 @@ namespace ns3 {
             }
         }
 
-        if (m_fmu == 0 && !m_modelIdentifier.empty()) {
-            // Load FMU.
-            m_fmu = CreateObject<RefFMU>(m_modelIdentifier, m_loggingOn);
-
-            // Instantiate and initialize FMU via callback.
-            m_initCallback(m_fmu, m_nodeId, m_modelIdentifier, m_startTimeInS);
-        }
+        if (m_fmu == 0 && !m_modelIdentifier.empty()) { initFmu(); }
 
         m_socket->SetRecvCallback(MakeCallback(&FmuAttachedDevice::HandleRead, this));
 
@@ -215,7 +212,7 @@ namespace ns3 {
             delete buffer;
 
             double t = Simulator::Now().GetSeconds();
-            string msg = m_doStepCallback(m_fmu, m_nodeId, payload, t, m_commStepSizeInS);
+            string msg = stepFmu(payload, t);
             packetOut = Create<Packet>((uint8_t*) msg.c_str(), msg.length() + 1);
 
             // Add header
@@ -234,7 +231,11 @@ namespace ns3 {
 
         // Sync FMU model with current time step.
         double t = Simulator::Now().GetSeconds();
-        string msg = defaultDoStepCallbackImpl(m_fmu, m_nodeId, "", t, m_commStepSizeInS);
+        double tt = m_fmu->getTime();
+        if (tt < t) { 
+            defaultDoStepCallbackImpl(m_fmu, m_nodeId, "", t, m_commStepSizeInS);
+            tt = m_fmu->getTime();
+        }
 
         // Open the file in append mode.
         ofstream file(m_resFilename, ios::app);
@@ -243,24 +244,26 @@ namespace ns3 {
             NS_FATAL_ERROR ("Failed to open file: " << m_resFilename);
         }
 
+        string sep(","); // Separator character.
+
         // If the file is empty, write the column names.
         file.seekp(0, ios::end);
         if (0 == file.tellp()) {
             // Name of time column.
-            file << "time";
-            if (m_resVarnames.size()) { file << ","; }
+            file << "instance" << sep << "time";
+            if (m_resVarnames.size()) { file << sep; }
 
             // Names of all other columns.
             for (size_t i = 0; i < m_resVarnames.size(); ++i) {
                 file << m_resVarnames[i];
-                if (i < m_resVarnames.size() - 1) { file << ","; }
+                if (i < m_resVarnames.size() - 1) { file << sep; }
             }
             file << "\n";
         }
 
         // Write current timestamp (simulation in seconds).
-        file << t;
-        if (m_resVarnames.size()) { file << ","; }
+        file << m_fmu->instanceName() << sep << tt;
+        if (m_resVarnames.size()) { file << sep; }
 
         // Write all other rows.
         for (size_t i = 0; i < m_resVarnames.size(); ++i)
@@ -282,7 +285,7 @@ namespace ns3 {
                 break;
             }
             
-            if (i < m_resVarnames.size() - 1) { file << ","; }
+            if (i < m_resVarnames.size() - 1) { file << sep; }
         }
         file << "\n";
 
@@ -297,6 +300,23 @@ namespace ns3 {
 
         // Schedule the next write event.
         m_writeDataEvent = Simulator::Schedule(Time(Seconds(m_resWritePeriodInS)), &FmuAttachedDevice::WriteData, this);
+    }
+
+    void
+    FmuAttachedDevice::initFmu() {
+        // Create node-specific instance name.
+        const string instanceName = m_modelIdentifier + to_string(m_nodeId);
+
+        // Load FMU.
+        m_fmu = CreateObject<RefFMU>(m_modelIdentifier, instanceName, m_loggingOn);
+
+        // Instantiate and initialize FMU via callback.
+        m_initCallback(m_fmu, m_nodeId, instanceName, m_startTimeInS);
+    }
+
+    string
+    FmuAttachedDevice::stepFmu(const std::string& payload, const double& t) {
+        return m_doStepCallback(m_fmu, m_nodeId, payload, t, m_commStepSizeInS);
     }
 
 } // Namespace ns3

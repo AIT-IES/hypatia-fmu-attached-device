@@ -1,7 +1,7 @@
 #include "fmu-attached-device-factory.h"
+#include "fmu-device-helper.h"
 
 #include "ns3/exp-util.h"
-#include "ns3/fmu-attached-device-helper.h"
 
 #include <common/FMIPPConfig.h>
 #include <import/base/include/ModelManager.h>
@@ -79,11 +79,10 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
 
         string fmuConfigRaw = basicSimulation->GetConfigParamOrFail("fmu_config_files");
         vector<pair<string, string>> fmuConfigList = parse_map_string(fmuConfigRaw);
-        vector<pair<string, string>>::const_iterator itFmuConfigList;
-        for (itFmuConfigList = fmuConfigList.begin(); itFmuConfigList != fmuConfigList.end(); ++itFmuConfigList)
+        for (auto const& config : fmuConfigList)
         {
-            int64_t endpoint = parse_positive_int64(itFmuConfigList->first);
-            string fmuConfigFileName = basicSimulation->GetRunDir() + "/" + itFmuConfigList->second;
+            int64_t endpoint = parse_positive_int64(config.first);
+            string fmuConfigFileName = basicSimulation->GetRunDir() + "/" + config.second;
 
             printf("  > Read FMU configuration for enpoint %ld from %s\n", endpoint, fmuConfigFileName.c_str());
             map<string, string> fmuConfig = read_config(fmuConfigFileName);
@@ -117,7 +116,7 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
             printf("    >> FMU loaded successfully\n");
 
             // Helper to install the application.
-            FmuAttachedDeviceHelper fmuDevice(1025, endpoint, modelIdentifier, fmuStartTimeInS, fmuCommStepSizeInS, loggingOn, initCallback, doStepCallback);
+            FmuDeviceHelper<FmuAttachedDevice> fmuDevice(1025, endpoint, modelIdentifier, fmuStartTimeInS, fmuCommStepSizeInS, loggingOn, initCallback, doStepCallback);
 
             printf("    >> FMU instance successfully attached to device\n");
 

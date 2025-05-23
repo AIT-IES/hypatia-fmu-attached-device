@@ -8,8 +8,7 @@
 #include "ns3/traced-callback.h"
 #include "ns3/seq-ts-header.h"
 #include "ns3/callback.h"
-
-#include <import/base/include/FMUCoSimulation_v2.h>
+#include "ns3/fmu-util.h"
 
 #include <vector>
 #include <string>
@@ -17,13 +16,6 @@
 namespace ns3 {
 
 class Socket;
-class Packet;
-
-class RefFMU: public fmi_2_0::FMUCoSimulation, public Object {
-public:
-  RefFMU(const std::string& modelIdentifier,const bool loggingOn):
-    FMUCoSimulation(modelIdentifier, loggingOn), Object() {}
-};
 
 class FmuAttachedDevice : public Application 
 {
@@ -41,8 +33,6 @@ public:
 protected:
   virtual void DoDispose (void);
 
-private:
-
   virtual void StartApplication (void);
   virtual void StopApplication (void);
   void HandleRead (Ptr<Socket> socket);
@@ -53,6 +43,9 @@ private:
 
   Ptr<Socket> m_socket; //!< IPv4 Socket
   Address m_local;      //!< local multicast address
+
+  virtual void initFmu();
+  virtual std::string stepFmu(const std::string& payload, const double& t);
 
   std::string m_modelIdentifier;
   bool m_loggingOn;
