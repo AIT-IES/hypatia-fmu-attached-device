@@ -2,12 +2,13 @@
 #define DEVICE_CLIENT_H
 
 #include "ns3/application.h"
-#include "ns3/event-id.h"
-#include "ns3/ptr.h"
-#include "ns3/ipv4-address.h"
-#include "ns3/traced-callback.h"
-#include "ns3/seq-ts-header.h"
 #include "ns3/callback.h"
+#include "ns3/event-id.h"
+#include "ns3/ipv4-address.h"
+#include "ns3/processing-time.h"
+#include "ns3/ptr.h"
+#include "ns3/seq-ts-header.h"
+#include "ns3/traced-callback.h"
 
 #include <string>
 
@@ -40,8 +41,9 @@ private:
 
   virtual void StartApplication (void);
   virtual void StopApplication (void);
-  void ScheduleTransmit (Time dt);
-  void Send (void);
+  void ScheduleProcessing (Time dt);
+  void Process (void);
+  void Send (Ptr<Packet> p);
   void HandleRead (Ptr<Socket> socket);
 
   static std::string defaultSendCallbackImpl(uint64_t from, uint64_t to) { return std::string(); }
@@ -51,6 +53,7 @@ private:
   Ptr<Socket> m_socket; //!< Socket
   Address m_peerAddress; //!< Remote peer address
   uint16_t m_peerPort; //!< Remote peer port
+  EventId m_processEvent; //!< Event to process the next packet
   EventId m_sendEvent; //!< Event to send the next packet
 
   uint64_t m_fromNodeId;
@@ -59,6 +62,10 @@ private:
   std::vector<int64_t> m_sendRequestTimestamps;
   std::vector<int64_t> m_replyTimestamps;
   std::vector<int64_t> m_receiveReplyTimestamps;
+
+  Time m_processingTimeMean; //!< Average processing time.
+  Time m_processingTimeStdDev; //!< Standard deviation of processing time.
+  Ptr<ProcessingTime> m_processingTime;
 
   MessageSendCallbackType m_msgSendCallback;
   MessageReceiveCallbackType m_msgReceiveCallback;

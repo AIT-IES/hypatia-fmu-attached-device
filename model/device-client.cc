@@ -8,6 +8,7 @@
 #include "ns3/simulator.h"
 #include "ns3/socket-factory.h"
 #include "ns3/packet.h"
+#include "ns3/integer.h"
 #include "ns3/uinteger.h"
 #include "ns3/trace-source-accessor.h"
 #include "device-client.h"
@@ -23,44 +24,54 @@ NS_OBJECT_ENSURE_REGISTERED (DeviceClient);
 TypeId
 DeviceClient::GetTypeId(void) {
     static TypeId tid = TypeId("ns3::DeviceClient")
-            .SetParent<Application>()
-            .SetGroupName("Applications")
-            .AddConstructor<DeviceClient>()
-            .AddAttribute("Interval",
-                          "The time to wait between packets",
-                          TimeValue(Seconds(1.0)),
-                          MakeTimeAccessor(&DeviceClient::m_interval),
-                          MakeTimeChecker())
-            .AddAttribute("RemoteAddress",
-                          "The destination Address of the outbound packets",
-                          AddressValue(),
-                          MakeAddressAccessor(&DeviceClient::m_peerAddress),
-                          MakeAddressChecker())
-            .AddAttribute("RemotePort",
-                          "The destination port of the outbound packets",
-                          UintegerValue(0),
-                          MakeUintegerAccessor(&DeviceClient::m_peerPort),
-                          MakeUintegerChecker<uint16_t>())
-            .AddAttribute("FromNodeId",
-                          "From node identifier",
-                          UintegerValue(0),
-                          MakeUintegerAccessor(&DeviceClient::m_fromNodeId),
-                          MakeUintegerChecker<uint64_t>())
-            .AddAttribute("ToNodeId",
-                          "To node identifier",
-                          UintegerValue(0),
-                          MakeUintegerAccessor(&DeviceClient::m_toNodeId),
-                          MakeUintegerChecker<uint64_t>())
-            .AddAttribute("MsgSendCallback",
-                          "Callback for sending a payload message",
-                          CallbackValue(MakeCallback(&DeviceClient::defaultSendCallbackImpl)),
-                          MakeCallbackAccessor(&DeviceClient::m_msgSendCallback),
-                          MakeCallbackChecker())
-            .AddAttribute("MsgReceiveCallback",
-                          "Callback for receiving a payload message",
-                          CallbackValue(MakeCallback(&DeviceClient::defaultReceiveCallbackImpl)),
-                          MakeCallbackAccessor(&DeviceClient::m_msgReceiveCallback),
-                          MakeCallbackChecker());
+        .SetParent<Application>()
+        .SetGroupName("Applications")
+        .AddConstructor<DeviceClient>()
+        .AddAttribute("Interval",
+                      "The time to wait between packets",
+                      TimeValue(Seconds(1.0)),
+                      MakeTimeAccessor(&DeviceClient::m_interval),
+                      MakeTimeChecker())
+        .AddAttribute("RemoteAddress",
+                      "The destination Address of the outbound packets",
+                      AddressValue(),
+                      MakeAddressAccessor(&DeviceClient::m_peerAddress),
+                      MakeAddressChecker())
+        .AddAttribute("RemotePort",
+                      "The destination port of the outbound packets",
+                      UintegerValue(0),
+                      MakeUintegerAccessor(&DeviceClient::m_peerPort),
+                      MakeUintegerChecker<uint16_t>())
+        .AddAttribute("FromNodeId",
+                      "From node identifier",
+                      UintegerValue(0),
+                      MakeUintegerAccessor(&DeviceClient::m_fromNodeId),
+                      MakeUintegerChecker<uint64_t>())
+        .AddAttribute("ToNodeId",
+                      "To node identifier",
+                      UintegerValue(0),
+                      MakeUintegerAccessor(&DeviceClient::m_toNodeId),
+                      MakeUintegerChecker<uint64_t>())
+        .AddAttribute("MsgSendCallback",
+                      "Callback for sending a payload message",
+                      CallbackValue(MakeCallback(&DeviceClient::defaultSendCallbackImpl)),
+                      MakeCallbackAccessor(&DeviceClient::m_msgSendCallback),
+                      MakeCallbackChecker())
+        .AddAttribute("MsgReceiveCallback",
+                      "Callback for receiving a payload message",
+                      CallbackValue(MakeCallback(&DeviceClient::defaultReceiveCallbackImpl)),
+                      MakeCallbackAccessor(&DeviceClient::m_msgReceiveCallback),
+                      MakeCallbackChecker())
+        .AddAttribute("ProcessingTimeMean",
+                      "Average processing time",
+                      TimeValue(MilliSeconds(1)),
+                      MakeTimeAccessor(&DeviceClient::m_processingTimeMean),
+                      MakeTimeChecker())
+        .AddAttribute("ProcessingTimeStdDev",
+                      "Standard deviation of processing time",
+                      TimeValue(MicroSeconds(50)),
+                      MakeTimeAccessor(&DeviceClient::m_processingTimeStdDev),
+                      MakeTimeChecker());
     return tid;
 }
 
@@ -68,9 +79,11 @@ DeviceClient::DeviceClient() {
     NS_LOG_FUNCTION(this);
     m_socket = 0;
     m_sent = 0;
+    m_processEvent = EventId();
     m_sendEvent = EventId();
     m_msgSendCallback = MakeCallback(&DeviceClient::defaultSendCallbackImpl);
     m_msgReceiveCallback = MakeCallback(&DeviceClient::defaultReceiveCallbackImpl);
+    m_processingTime = 0;
 }
 
 DeviceClient::~DeviceClient() {
@@ -106,7 +119,10 @@ DeviceClient::StartApplication(void) {
     }
     m_socket->SetRecvCallback(MakeCallback(&DeviceClient::HandleRead, this));
     m_socket->SetAllowBroadcast(true);
-    ScheduleTransmit(Seconds(0.));
+
+    m_processingTime = CreateObject<ProcessingTime>(m_processingTimeMean, m_processingTimeStdDev);
+
+    ScheduleProcessing(Seconds(0.));
 }
 
 void
@@ -121,15 +137,16 @@ DeviceClient::StopApplication() {
 }
 
 void
-DeviceClient::ScheduleTransmit(Time dt) {
+DeviceClient::ScheduleProcessing(Time dt) {
     NS_LOG_FUNCTION(this << dt);
-    m_sendEvent = Simulator::Schedule(dt, &DeviceClient::Send, this);
+    m_processEvent = Simulator::Schedule(dt, &DeviceClient::Process, this);
 }
 
 void
-DeviceClient::Send(void) {
-    NS_LOG_FUNCTION(this);
-    NS_ASSERT(m_sendEvent.IsExpired());
+DeviceClient::Process(void) {
+    NS_LOG_FUNCTION(this << " - start processing at " << Simulator::Now());
+    NS_ABORT_MSG_UNLESS(m_processEvent.IsExpired(), "Previous processing has not finished yet.");
+    NS_ABORT_MSG_UNLESS(m_sendEvent.IsExpired(), "Previous message has not been sent yet.");
 
     // Packet with message and timestamp.
     string msg = m_msgSendCallback(m_fromNodeId, m_toNodeId);
@@ -147,10 +164,18 @@ DeviceClient::Send(void) {
     m_sent++;
 
     // Send out
-    m_socket->Send(p);
+    m_sendEvent = Simulator::Schedule(
+        m_processingTime->GetValue(), &DeviceClient::Send, this, p
+    );
 
     // Schedule next transmit
-    ScheduleTransmit(m_interval);
+    ScheduleProcessing(m_interval);
+}
+
+void
+DeviceClient::Send (Ptr<Packet> p) {
+    NS_LOG_FUNCTION(this << " - send packet at " << Simulator::Now());
+    m_socket->Send(p);
 }
 
 void

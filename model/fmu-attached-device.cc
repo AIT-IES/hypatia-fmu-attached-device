@@ -8,6 +8,7 @@
 #include "ns3/simulator.h"
 #include "ns3/socket-factory.h"
 #include "ns3/packet.h"
+#include "ns3/integer.h"
 #include "ns3/uinteger.h"
 #include "ns3/double.h"
 #include "ns3/string.h"
@@ -16,6 +17,7 @@
 #include "ns3/fmu-util.h"
 
 #include "fmu-attached-device.h"
+#include "send-reply-context.h"
 
 #include <cmath>
 #include <fstream>
@@ -32,63 +34,73 @@ namespace ns3 {
     TypeId
     FmuAttachedDevice::GetTypeId(void) {
         static TypeId tid = TypeId("ns3::FmuAttachedDevice")
-                .SetParent<Application>()
-                .SetGroupName("Applications")
-                .AddConstructor<FmuAttachedDevice>()
-                .AddAttribute("Port", "Port on which we listen for incoming packets.",
-                              UintegerValue(9),
-                              MakeUintegerAccessor(&FmuAttachedDevice::m_port),
-                              MakeUintegerChecker<uint16_t>())
-                .AddAttribute("NodeId", "Node identifier",
-                              UintegerValue(0),
-                              MakeUintegerAccessor(&FmuAttachedDevice::m_nodeId),
-                              MakeUintegerChecker<uint64_t>())
-                .AddAttribute("ModelIdentifier", "FMU model identifier.",
-                              StringValue(),
-                              MakeStringAccessor(&FmuAttachedDevice::m_modelIdentifier),
-                              MakeStringChecker())
-                .AddAttribute("ModelStepSize", "Set the communication step size for the FMU (in seconds).",
-                              DoubleValue(1e-5),
-                              MakeDoubleAccessor(&FmuAttachedDevice::m_commStepSizeInS),
-                              MakeDoubleChecker<double>(numeric_limits<double>::min()))
-                .AddAttribute("ModelStartTime", "Set the start time for the FMU (in seconds).",
-                              DoubleValue(0.),
-                              MakeDoubleAccessor(&FmuAttachedDevice::m_startTimeInS),
-                              MakeDoubleChecker<double>(0.))
-                .AddAttribute("LoggingOn", "Turn on logging for FMU.",
-                              BooleanValue(false),
-                              MakeBooleanAccessor(&FmuAttachedDevice::m_loggingOn),
-                              MakeBooleanChecker())
-                .AddAttribute("InitCallback",
-                              "Callback for instantiating and initializing the FMU model.",
-                              CallbackValue(MakeCallback(&FmuAttachedDevice::defaultInitCallbackImpl)),
-                              MakeCallbackAccessor(&FmuAttachedDevice::m_initCallback),
-                              MakeCallbackChecker())
-                .AddAttribute("DoStepCallback",
-                              "Callback for performing a simulation step and returning a payload message.",
-                              CallbackValue(MakeCallback(&FmuAttachedDevice::defaultDoStepCallbackImpl)),
-                              MakeCallbackAccessor(&FmuAttachedDevice::m_doStepCallback),
-                              MakeCallbackChecker())
-                .AddAttribute("ResultsWrite",
-                              "Flag to indicate if results file should be written.",
-                              BooleanValue(false),
-                              MakeBooleanAccessor(&FmuAttachedDevice::m_resWrite),
-                              MakeBooleanChecker())
-                .AddAttribute("ResultsWritePeriodInS",
-                              "Time period to write values to results file.",
-                              DoubleValue(1.),
-                              MakeDoubleAccessor(&FmuAttachedDevice::m_resWritePeriodInS),
-                              MakeDoubleChecker<double>(numeric_limits<double>::min()))
-                .AddAttribute("ResultsFilename",
-                              "Name of results file.",
-                              StringValue(),
-                              MakeStringAccessor (&FmuAttachedDevice::m_resFilename),
-                              MakeStringChecker())
-                .AddAttribute("ResultsVariableNamesList",
-                              "List of names of variables whose values should be written to the results file.",
-                              StringValue(),
-                              MakeStringAccessor (&FmuAttachedDevice::m_resVarnamesList),
-                              MakeStringChecker());
+            .SetParent<Application>()
+            .SetGroupName("Applications")
+            .AddConstructor<FmuAttachedDevice>()
+            .AddAttribute("Port", "Port on which we listen for incoming packets.",
+                          UintegerValue(9),
+                          MakeUintegerAccessor(&FmuAttachedDevice::m_port),
+                          MakeUintegerChecker<uint16_t>())
+            .AddAttribute("NodeId", "Node identifier",
+                          UintegerValue(0),
+                          MakeUintegerAccessor(&FmuAttachedDevice::m_nodeId),
+                          MakeUintegerChecker<uint64_t>())
+            .AddAttribute("ModelIdentifier", "FMU model identifier.",
+                          StringValue(),
+                          MakeStringAccessor(&FmuAttachedDevice::m_modelIdentifier),
+                          MakeStringChecker())
+            .AddAttribute("ModelStepSize", "Set the communication step size for the FMU (in seconds).",
+                          DoubleValue(1e-5),
+                          MakeDoubleAccessor(&FmuAttachedDevice::m_commStepSizeInS),
+                          MakeDoubleChecker<double>(numeric_limits<double>::min()))
+            .AddAttribute("ModelStartTime", "Set the start time for the FMU (in seconds).",
+                          DoubleValue(0.),
+                          MakeDoubleAccessor(&FmuAttachedDevice::m_startTimeInS),
+                          MakeDoubleChecker<double>(0.))
+            .AddAttribute("LoggingOn", "Turn on logging for FMU.",
+                          BooleanValue(false),
+                          MakeBooleanAccessor(&FmuAttachedDevice::m_loggingOn),
+                          MakeBooleanChecker())
+            .AddAttribute("InitCallback",
+                          "Callback for instantiating and initializing the FMU model.",
+                          CallbackValue(MakeCallback(&FmuAttachedDevice::defaultInitCallbackImpl)),
+                          MakeCallbackAccessor(&FmuAttachedDevice::m_initCallback),
+                          MakeCallbackChecker())
+            .AddAttribute("DoStepCallback",
+                          "Callback for performing a simulation step and returning a payload message.",
+                          CallbackValue(MakeCallback(&FmuAttachedDevice::defaultDoStepCallbackImpl)),
+                          MakeCallbackAccessor(&FmuAttachedDevice::m_doStepCallback),
+                          MakeCallbackChecker())
+            .AddAttribute("ResultsWrite",
+                          "Flag to indicate if results file should be written.",
+                          BooleanValue(false),
+                          MakeBooleanAccessor(&FmuAttachedDevice::m_resWrite),
+                          MakeBooleanChecker())
+            .AddAttribute("ResultsWritePeriodInS",
+                          "Time period to write values to results file.",
+                          DoubleValue(1.),
+                          MakeDoubleAccessor(&FmuAttachedDevice::m_resWritePeriodInS),
+                          MakeDoubleChecker<double>(numeric_limits<double>::min()))
+            .AddAttribute("ResultsFilename",
+                          "Name of results file.",
+                          StringValue(),
+                          MakeStringAccessor (&FmuAttachedDevice::m_resFilename),
+                          MakeStringChecker())
+            .AddAttribute("ResultsVariableNamesList",
+                          "List of names of variables whose values should be written to the results file.",
+                          StringValue(),
+                          MakeStringAccessor (&FmuAttachedDevice::m_resVarnamesList),
+                          MakeStringChecker())
+            .AddAttribute("ProcessingTimeMean",
+                          "Average processing time",
+                          TimeValue(MilliSeconds(1)),
+                          MakeTimeAccessor(&FmuAttachedDevice::m_processingTimeMean),
+                          MakeTimeChecker())
+            .AddAttribute("ProcessingTimeStdDev",
+                          "Standard deviation of processing time",
+                          TimeValue(MicroSeconds(50)),
+                          MakeTimeAccessor(&FmuAttachedDevice::m_processingTimeStdDev),
+                          MakeTimeChecker());
         return tid;
     }
 
@@ -96,6 +108,9 @@ namespace ns3 {
         NS_LOG_FUNCTION(this);
         m_socket = 0;
         m_fmu = 0;
+        m_writeDataEvent = EventId();
+        m_sendEvent = EventId();
+        m_processingTime = 0;
     }
 
     FmuAttachedDevice::~FmuAttachedDevice() {
@@ -158,13 +173,15 @@ namespace ns3 {
                 NS_FATAL_ERROR("Failed to bind socket");
             }
             if (addressUtils::IsMulticast(m_local)) {
-                throw std::runtime_error("Multi-cast is not supported.");
+                NS_FATAL_ERROR("Multi-cast is not supported.");
             }
         }
 
         if (m_fmu == 0 && !m_modelIdentifier.empty()) { initFmu(); }
 
         m_socket->SetRecvCallback(MakeCallback(&FmuAttachedDevice::HandleRead, this));
+
+        m_processingTime = CreateObject<ProcessingTime>(m_processingTimeMean, m_processingTimeStdDev);
 
         // Initialize periodic writing of FMU model data.
         if (m_resWrite) {
@@ -190,14 +207,19 @@ namespace ns3 {
     }
 
     void
-    FmuAttachedDevice::HandleRead(Ptr <Socket> socket) {
+    FmuAttachedDevice::HandleRead(Ptr<Socket> socket) {
         NS_LOG_FUNCTION(this << socket);
-        Ptr <Packet> packetIn;
+
+        NS_ASSERT(m_sendEvent.IsExpired());
+
+        Time processingTime = m_processingTime->GetValue();
+        Ptr<Packet> packetIn;
         Ptr<Packet> packetOut;
         Address from;
-        while ((packetIn = socket->RecvFrom(from))) {
-
-            NS_LOG_DEBUG ("At time " << Simulator::Now ().GetSeconds () << "s device received " << packetIn->GetSize () << " bytes from " <<
+        while ((packetIn = socket->RecvFrom(from)))
+        {
+            NS_LOG_DEBUG ("At time " << Simulator::Now ().GetSeconds () << "s " <<
+                "device received " << packetIn->GetSize () << " bytes from " <<
                 InetSocketAddress::ConvertFrom (from).GetIpv4 () << " port " <<
                 InetSocketAddress::ConvertFrom (from).GetPort ());
 
@@ -205,9 +227,9 @@ namespace ns3 {
             SeqTsHeader incomingSeqTs;
             packetIn->RemoveHeader(incomingSeqTs);
 
-            uint8_t *buffer = new uint8_t[packetIn->GetSize ()];
-            packetIn->CopyData(buffer, packetIn->GetSize ());
-            string payload = string(buffer, buffer+packetIn->GetSize());
+            uint8_t *buffer = new uint8_t[packetIn->GetSize()];
+            packetIn->CopyData(buffer, packetIn->GetSize());
+            string payload = string(buffer, buffer + packetIn->GetSize());
             NS_LOG_DEBUG ("Buffer: size = " << packetIn->GetSize() << " - content: " << payload);
             delete buffer;
 
@@ -220,9 +242,22 @@ namespace ns3 {
             outgoingSeqTs.SetSeq(incomingSeqTs.GetSeq());
             packetOut->AddHeader(outgoingSeqTs);
 
-            // Send back with the new timestamp on it
-            socket->SendTo(packetOut, 0, from);
+            // Send back with the new timestamp on it.
+            // socket->SendTo(packetOut, 0, from);
+            m_sendEvent = Simulator::Schedule(
+                processingTime, &FmuAttachedDevice::Send, this, Create<SendReplyContext>(socket, packetOut, from)
+            );
         }
+    }
+
+    void
+    FmuAttachedDevice::Send(Ptr<SendReplyContext> reply) {
+        NS_LOG_DEBUG ("At time " << Simulator::Now ().GetSeconds () << "s " <<
+        "send " << reply->m_packet->GetSize () << " bytes to " <<
+        InetSocketAddress::ConvertFrom (reply->m_address).GetIpv4 () << " port " <<
+        InetSocketAddress::ConvertFrom (reply->m_address).GetPort ());
+
+        reply->m_socket->SendTo(reply->m_packet, 0, reply->m_address);
     }
 
     void

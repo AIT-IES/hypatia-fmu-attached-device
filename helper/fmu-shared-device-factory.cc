@@ -104,6 +104,8 @@ FmuSharedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulatio
             bool loggingOn = toBoolean(get_param_or_fail("logging_on", fmuConfig));
             string modelIdentifier = get_param_or_fail("model_identifier", fmuConfig);
             string sharedFmuInstanceName = get_param_or_fail("shared_instance_name", fmuConfig);
+            double proc_time_mean_ns = parse_positive_double(get_param_or_fail("processing_time_mean_ns", fmuConfig));
+            double proc_time_std_dev_ns = parse_positive_double(get_param_or_fail("processing_time_std_dev_ns", fmuConfig));
 
             string fmuDirUri = getFileUriFromPath(fmuDirAbs);
             ModelManager::LoadFMUStatus status = ModelManager::failed;
@@ -124,7 +126,9 @@ FmuSharedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulatio
                 printf("  > Attach FMU to enpoint %ld\n", endpoint);
 
                 // Helper to install the application.
-                FmuDeviceHelper<FmuSharedDevice> fmuDevice(1025, endpoint, modelIdentifier, fmuStartTimeInS, fmuCommStepSizeInS, loggingOn, initCallback, doStepCallback);
+                FmuDeviceHelper<FmuSharedDevice> fmuDevice(1025, endpoint, modelIdentifier, fmuStartTimeInS,
+                    fmuCommStepSizeInS, loggingOn, initCallback, doStepCallback,
+                    NanoSeconds(proc_time_mean_ns), NanoSeconds(proc_time_std_dev_ns));
                 fmuDevice.SetAttribute("SharedFmuInstanceName", StringValue(sharedFmuInstanceName));
 
                 printf("    >> Shared FMU instance successfully attached to device\n");

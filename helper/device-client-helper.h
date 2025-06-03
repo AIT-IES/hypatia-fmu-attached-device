@@ -19,7 +19,8 @@ public:
 
   DeviceClientHelper (
     Address ip, uint16_t port, uint64_t from_node_id, uint64_t to_node_id, 
-    MessageSendCallbackType send_callback, MessageReceiveCallbackType receive_callback);
+    MessageSendCallbackType send_callback, MessageReceiveCallbackType receive_callback,
+    Time processing_time_mean = MilliSeconds(1), Time processing_time_std_dev = MicroSeconds(50));
   void SetAttribute (std::string name, const AttributeValue &value);
   ApplicationContainer Install (Ptr<Node> node) const;
 

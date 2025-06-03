@@ -79,9 +79,10 @@ def configure( conf ):
 def build(bld):
     module = bld.create_ns3_module('fmu-attached-device', ['core', 'basic-sim'])
     module.source = [
+        'model/device-client.cc',
         'model/fmu-attached-device.cc',
         'model/fmu-shared-device.cc',
-        'model/device-client.cc',
+        'model/processing-time.cc',
         'helper/fmu-attached-device-factory.cc',
         'helper/fmu-shared-device-factory.cc',
         'helper/device-client-helper.cc',
@@ -96,15 +97,16 @@ def build(bld):
     headers = bld(features='ns3header')
     headers.module = 'fmu-attached-device'
     headers.source = [
+        'model/device-client.h',
         'model/fmu-attached-device.h',
         'model/fmu-shared-device.h',
-        'model/device-client.h',
-        'helper/fmu-util.h',
-        'helper/fmu-device-helper.h',
+        'model/processing-time.h',
+        'helper/device-client-factory.h',
+        'helper/device-client-helper.h',
         'helper/fmu-attached-device-factory.h',
         'helper/fmu-shared-device-factory.h',
-        'helper/device-client-helper.h',
-        'helper/device-client-factory.h',
+        'helper/fmu-device-helper.h',
+        'helper/fmu-util.h',
         ]
 
     # if bld.env.ENABLE_EXAMPLES:

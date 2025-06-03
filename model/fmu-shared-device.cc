@@ -8,6 +8,7 @@
 #include "ns3/simulator.h"
 #include "ns3/socket-factory.h"
 #include "ns3/packet.h"
+#include "ns3/integer.h"
 #include "ns3/uinteger.h"
 #include "ns3/double.h"
 #include "ns3/string.h"
@@ -35,68 +36,78 @@ namespace ns3 {
     TypeId
     FmuSharedDevice::GetTypeId(void) {
         static TypeId tid = TypeId("ns3::FmuSharedDevice")
-                .SetParent<Application>()
-                .SetGroupName("Applications")
-                .AddConstructor<FmuSharedDevice>()
-                .AddAttribute("Port", "Port on which we listen for incoming packets.",
-                              UintegerValue(9),
-                              MakeUintegerAccessor(&FmuSharedDevice::m_port),
-                              MakeUintegerChecker<uint16_t>())
-                .AddAttribute("NodeId", "Node identifier",
-                              UintegerValue(0),
-                              MakeUintegerAccessor(&FmuSharedDevice::m_nodeId),
-                              MakeUintegerChecker<uint64_t>())
-                .AddAttribute("ModelIdentifier", "FMU model identifier.",
-                              StringValue(),
-                              MakeStringAccessor(&FmuSharedDevice::m_modelIdentifier),
-                              MakeStringChecker())
-                .AddAttribute("ModelStepSize", "Set the communication step size for the FMU (in seconds).",
-                              DoubleValue(1e-5),
-                              MakeDoubleAccessor(&FmuSharedDevice::m_commStepSizeInS),
-                              MakeDoubleChecker<double>(numeric_limits<double>::min()))
-                .AddAttribute("ModelStartTime", "Set the start time for the FMU (in seconds).",
-                              DoubleValue(0.),
-                              MakeDoubleAccessor(&FmuSharedDevice::m_startTimeInS),
-                              MakeDoubleChecker<double>(0.))
-                .AddAttribute("LoggingOn", "Turn on logging for FMU.",
-                              BooleanValue(false),
-                              MakeBooleanAccessor(&FmuSharedDevice::m_loggingOn),
-                              MakeBooleanChecker())
-                .AddAttribute("InitCallback",
-                              "Callback for instantiating and initializing the FMU model.",
-                              CallbackValue(MakeCallback(&FmuSharedDevice::defaultInitCallbackImpl)),
-                              MakeCallbackAccessor(&FmuSharedDevice::m_initCallback),
-                              MakeCallbackChecker())
-                .AddAttribute("DoStepCallback",
-                              "Callback for performing a simulation step and returning a payload message.",
-                              CallbackValue(MakeCallback(&FmuSharedDevice::defaultDoStepCallbackImpl)),
-                              MakeCallbackAccessor(&FmuSharedDevice::m_doStepCallback),
-                              MakeCallbackChecker())
-                .AddAttribute("ResultsWrite",
-                              "Flag to indicate if results file should be written.",
-                              BooleanValue(false),
-                              MakeBooleanAccessor(&FmuSharedDevice::m_resWrite),
-                              MakeBooleanChecker())
-                .AddAttribute("ResultsWritePeriodInS",
-                              "Time period to write values to results file.",
-                              DoubleValue(1.),
-                              MakeDoubleAccessor(&FmuSharedDevice::m_resWritePeriodInS),
-                              MakeDoubleChecker<double>(numeric_limits<double>::min()))
-                .AddAttribute("ResultsFilename",
-                              "Name of results file.",
-                              StringValue(),
-                              MakeStringAccessor (&FmuSharedDevice::m_resFilename),
-                              MakeStringChecker())
-                .AddAttribute("ResultsVariableNamesList",
-                              "List of names of variables whose values should be written to the results file.",
-                              StringValue(),
-                              MakeStringAccessor (&FmuSharedDevice::m_resVarnamesList),
-                              MakeStringChecker())
-                .AddAttribute("SharedFmuInstanceName",
-                              "Common name of the shared FMU instance.",
-                              StringValue(),
-                              MakeStringAccessor (&FmuSharedDevice::m_sharedFmuInstanceName),
-                              MakeStringChecker());
+            .SetParent<Application>()
+            .SetGroupName("Applications")
+            .AddConstructor<FmuSharedDevice>()
+            .AddAttribute("Port", "Port on which we listen for incoming packets.",
+                          UintegerValue(9),
+                          MakeUintegerAccessor(&FmuSharedDevice::m_port),
+                          MakeUintegerChecker<uint16_t>())
+            .AddAttribute("NodeId", "Node identifier",
+                          UintegerValue(0),
+                          MakeUintegerAccessor(&FmuSharedDevice::m_nodeId),
+                          MakeUintegerChecker<uint64_t>())
+            .AddAttribute("ModelIdentifier", "FMU model identifier.",
+                          StringValue(),
+                          MakeStringAccessor(&FmuSharedDevice::m_modelIdentifier),
+                          MakeStringChecker())
+            .AddAttribute("ModelStepSize", "Set the communication step size for the FMU (in seconds).",
+                          DoubleValue(1e-5),
+                          MakeDoubleAccessor(&FmuSharedDevice::m_commStepSizeInS),
+                          MakeDoubleChecker<double>(numeric_limits<double>::min()))
+            .AddAttribute("ModelStartTime", "Set the start time for the FMU (in seconds).",
+                          DoubleValue(0.),
+                          MakeDoubleAccessor(&FmuSharedDevice::m_startTimeInS),
+                          MakeDoubleChecker<double>(0.))
+            .AddAttribute("LoggingOn", "Turn on logging for FMU.",
+                          BooleanValue(false),
+                          MakeBooleanAccessor(&FmuSharedDevice::m_loggingOn),
+                          MakeBooleanChecker())
+            .AddAttribute("InitCallback",
+                          "Callback for instantiating and initializing the FMU model.",
+                          CallbackValue(MakeCallback(&FmuSharedDevice::defaultInitCallbackImpl)),
+                          MakeCallbackAccessor(&FmuSharedDevice::m_initCallback),
+                          MakeCallbackChecker())
+            .AddAttribute("DoStepCallback",
+                          "Callback for performing a simulation step and returning a payload message.",
+                          CallbackValue(MakeCallback(&FmuSharedDevice::defaultDoStepCallbackImpl)),
+                          MakeCallbackAccessor(&FmuSharedDevice::m_doStepCallback),
+                          MakeCallbackChecker())
+            .AddAttribute("ResultsWrite",
+                          "Flag to indicate if results file should be written.",
+                          BooleanValue(false),
+                          MakeBooleanAccessor(&FmuSharedDevice::m_resWrite),
+                          MakeBooleanChecker())
+            .AddAttribute("ResultsWritePeriodInS",
+                          "Time period to write values to results file.",
+                          DoubleValue(1.),
+                          MakeDoubleAccessor(&FmuSharedDevice::m_resWritePeriodInS),
+                          MakeDoubleChecker<double>(numeric_limits<double>::min()))
+            .AddAttribute("ResultsFilename",
+                          "Name of results file.",
+                          StringValue(),
+                          MakeStringAccessor (&FmuSharedDevice::m_resFilename),
+                          MakeStringChecker())
+            .AddAttribute("ResultsVariableNamesList",
+                          "List of names of variables whose values should be written to the results file.",
+                          StringValue(),
+                          MakeStringAccessor (&FmuSharedDevice::m_resVarnamesList),
+                          MakeStringChecker())
+            .AddAttribute("SharedFmuInstanceName",
+                          "Common name of the shared FMU instance.",
+                          StringValue(),
+                          MakeStringAccessor (&FmuSharedDevice::m_sharedFmuInstanceName),
+                          MakeStringChecker())
+            .AddAttribute("ProcessingTimeMean",
+                          "Average processing time",
+                          TimeValue(MilliSeconds(1)),
+                          MakeTimeAccessor(&FmuSharedDevice::m_processingTimeMean),
+                          MakeTimeChecker())
+            .AddAttribute("ProcessingTimeStdDev",
+                          "Standard deviation of processing time",
+                          TimeValue(MicroSeconds(50)),
+                          MakeTimeAccessor(&FmuSharedDevice::m_processingTimeStdDev),
+                          MakeTimeChecker());
         return tid;
     }
 

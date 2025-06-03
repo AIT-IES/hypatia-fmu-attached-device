@@ -12,7 +12,6 @@ DeviceClientFactory::DeviceClientFactory(
     printf("DEVICE CLIENT FACTORY\n");
 
     m_basicSimulation = basicSimulation;
-    m_topology = topology;
 
     // Check if it is enabled explicitly
     m_enabled = parse_boolean(m_basicSimulation->GetConfigParamOrDefault("enable_device_clients", "false"));
@@ -22,15 +21,14 @@ DeviceClientFactory::DeviceClientFactory(
     } else {
         std::cout << "  > Device client factory enabled" << std::endl;
 
-        m_nodes = m_topology->GetNodes();
-        m_simulation_end_time_ns = m_basicSimulation->GetSimulationEndTimeNs();
-        m_interval_ns = parse_positive_int64(basicSimulation->GetConfigParamOrFail("send_devices_interval_ns"));
+        NodeContainer nodes = topology->GetNodes();
+        int64_t interval_ns = parse_positive_int64(basicSimulation->GetConfigParamOrFail("send_devices_interval_ns"));
         std::string send_endpoints_pair_str = basicSimulation->GetConfigParamOrFail("send_devices_endpoint_pairs");
-        m_system_id = m_basicSimulation->GetSystemId();
-        m_enable_distributed = m_basicSimulation->IsDistributedEnabled();
-        m_distributed_node_system_id_assignment = m_basicSimulation->GetDistributedNodeSystemIdAssignment();
+        uint32_t system_id = m_basicSimulation->GetSystemId();
+        bool enable_distributed = m_basicSimulation->IsDistributedEnabled();
+        std::vector<int64_t> distributed_node_system_id_assignment = m_basicSimulation->GetDistributedNodeSystemIdAssignment();
 
-        // Pairs
+        std::vector<std::pair<int64_t, int64_t>> endpoint_pairs;
         std::set<std::string> string_set = parse_set_string(send_endpoints_pair_str);
         for (std::string s : string_set) {
             std::vector<std::string> spl = split_string(s, "->", 2);
@@ -39,28 +37,28 @@ DeviceClientFactory::DeviceClientFactory(
             if (a == b) {
                 throw std::invalid_argument(format_string("Cannot connect pair to itself on node %" PRIu64 "", a));
             }
-            if (!m_topology->IsValidEndpoint(a)) {
+            if (!topology->IsValidEndpoint(a)) {
                 throw std::invalid_argument(format_string("Left node identifier in device pair is not a valid endpoint: %" PRIu64 "", a));
             }
-            if (!m_topology->IsValidEndpoint(b)) {
+            if (!topology->IsValidEndpoint(b)) {
                 throw std::invalid_argument(format_string("Right node identifier in device pair is not a valid endpoint: %" PRIu64 "", b));
             }
-            if (!m_enable_distributed || m_distributed_node_system_id_assignment[a] == m_system_id) {
-                m_endpoint_pairs.push_back(std::make_pair(a, b));
+            if (!enable_distributed || distributed_node_system_id_assignment[a] == system_id) {
+                endpoint_pairs.push_back(std::make_pair(a, b));
             }
         }
 
         // Sort the pairs ascending such that we can do some spacing
-        std::sort(m_endpoint_pairs.begin(), m_endpoint_pairs.end());
+        std::sort(endpoint_pairs.begin(), endpoint_pairs.end());
 
         // Schedule read
-        printf("  > Determined device pairs (size: %lu)\n", m_endpoint_pairs.size());
+        printf("  > Determined device pairs (size: %lu)\n", endpoint_pairs.size());
         m_basicSimulation->RegisterTimestamp("Determined device pairs");
 
         // Determine filenames
-        if (m_enable_distributed) {
-            m_device_csv_filename = m_basicSimulation->GetLogsDir() + "/system_" + std::to_string(m_system_id) + "_send_device.csv";
-            m_device_txt_filename = m_basicSimulation->GetLogsDir() + "/system_" + std::to_string(m_system_id) + "_send_device.txt";
+        if (enable_distributed) {
+            m_device_csv_filename = m_basicSimulation->GetLogsDir() + "/system_" + std::to_string(system_id) + "_send_device.csv";
+            m_device_txt_filename = m_basicSimulation->GetLogsDir() + "/system_" + std::to_string(system_id) + "_send_device.txt";
         } else {
             m_device_csv_filename = m_basicSimulation->GetLogsDir() + "/send_device.csv";
             m_device_txt_filename = m_basicSimulation->GetLogsDir() + "/send_device.txt";
@@ -73,17 +71,19 @@ DeviceClientFactory::DeviceClientFactory(
         m_basicSimulation->RegisterTimestamp("Remove previous log files");
 
         // Info
-        std::cout << "  > Send interval: " << m_interval_ns << " ns" << std::endl;
+        std::cout << "  > Send interval: " << interval_ns << " ns" << std::endl;
 
         // Endpoints
-        std::set<int64_t> endpoints = m_topology->GetEndpoints();
+        std::set<int64_t> endpoints = topology->GetEndpoints();
 
         // Install echo client from each node to each other node
-        std::cout << "  > Setting up " << m_endpoint_pairs.size() << " device clients" << std::endl;
-        int64_t in_between_ns = m_interval_ns / (endpoints.size() - 1);
+        std::cout << "  > Setting up " << endpoint_pairs.size() << " device clients" << std::endl;
+        double proc_time_mean_ns = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_mean_ns"));
+        double proc_time_std_dev_ns = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_std_dev_ns"));
+        int64_t in_between_ns = interval_ns / (endpoints.size() - 1);
         int counter = 0;
         int64_t prev_i = -1;
-        for (std::pair<int64_t, int64_t>& p : m_endpoint_pairs) {
+        for (std::pair<int64_t, int64_t>& p : endpoint_pairs) {
 
             if (p.first != prev_i) {
                 prev_i = p.first;
@@ -92,17 +92,19 @@ DeviceClientFactory::DeviceClientFactory(
 
             // Helper to install the source application
             DeviceClientHelper source(
-                    m_nodes.Get(p.second)->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal(),
+                    nodes.Get(p.second)->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal(),
                     1025,
                     p.first,
                     p.second,
                     send_callback,
-                    receive_callback
+                    receive_callback,
+                    NanoSeconds(proc_time_mean_ns),
+                    NanoSeconds(proc_time_std_dev_ns)
             );
-            source.SetAttribute("Interval", TimeValue(NanoSeconds(m_interval_ns)));
+            source.SetAttribute("Interval", TimeValue(NanoSeconds(interval_ns)));
 
             // Install it on the node and start it right now
-            ApplicationContainer app = source.Install(m_nodes.Get(p.first));
+            ApplicationContainer app = source.Install(nodes.Get(p.first));
             app.Start(NanoSeconds(counter * in_between_ns));
             m_apps.push_back(app);
 
