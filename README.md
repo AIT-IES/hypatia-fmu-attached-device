@@ -39,6 +39,7 @@ This class implements an application layer model that uses an FMU to compute its
 The interaction of the device with the FMU (initialization and simulation of the model) can be defined via callbacks.
 When receiving a message, the FMU will be used to determine the device's current state and the device will also return a message.
 The content of the return message is also determined via the callback function for simulating the FMU.
+The sending of the return message is delayed by a process delay (randomized using a gamma distribution).
 
 Attributes:
 
@@ -54,13 +55,27 @@ Attributes:
 + *ResultsWritePeriodInS*: Time period to write values to results file (DoubleValue)
 + *ResultsFilename*: Name of results file (StringValue)
 + *ResultsVariableNamesList*: List of names of variables whose values should be written to the results file (StringValue)
++ *ProcessingTimeMean*: Average processing time (TimeValue
++ *ProcessingTimeStdDev*: Standard deviation of processing time (TimeValue)
 
 Class `FmuAttachedDeviceHelper` implements a helper API for class `FMUAttachedDevice`.
+
+### Class `FmuSharedDevice`
+
+This class implements application layer models that uses a common shared FMU to compute their internal states.
+The usage and function is analogous to class `FMUAttachedDevice`.
+
+Class `FmuSharedDevice` has the same parameters as class `FMUAttachedDevice`.
+In addition, it has the following parameter:
++ *SharedFmuInstanceName*: Common name of the shared FMU instance (StringValue)
+
+Class `FmuSharedDeviceHelper` implements a helper API for class `FMUSharedDevice`.
 
 ### Class `DeviceClient`
 
 A simple client that sends/receives messages to/from FMU-attached devices.
 The behavior of this client (sending and receiving) can be defined via callbacks.
+The client sends messages in regular intervals, randomized by a processing delay (subject to a gamma distribution).
 
 Attributes:
 
@@ -71,6 +86,8 @@ Attributes:
 + *ToNodeId*: To node identifier (UintegerValue)
 + *MsgSendCallback*: Callback for sending a payload message (CallbackValue)
 + *MsgReceiveCallback*: Callback for receiving a payload message (CallbackValue)
++ *ProcessingTimeMean*: Average processing time (TimeValue
++ *ProcessingTimeStdDev*: Standard deviation of processing time (TimeValue)
 
 Class `DeviceClientHelper` implements a helper API for class `DeviceClient`.
 
@@ -94,6 +111,8 @@ In the FMU config files, the following properties are expected:
 
 + *model_identifier*: FMU model identifier (string)
 + *fmu_dir*: path (relative to run directory or absolute) to the directory containing the extracted FMU (string)
++ *processing_time_mean_ns*: average of processing time of FMU-attached device in nanoseconds (double)
++ *processing_time_std_dev_ns*: standard deviation of processing time of FMU-attached device in nanoseconds (double)
 + *start_time_in_s*: FMU model start time in seconds (double)
 + *comm_step_size_in_s*: FMU model communication step size in seconds (double)
 + *logging_on*: turn on/off the logger of the FMU model (boolean)
@@ -105,7 +124,9 @@ In the FMU config files, the following properties are expected:
 Example FMU config file snippet:
 ``` properties
 model_identifier=integrate
-fmu_dir_uri=file:///mnt/c/Development/hypatia/dev/extracted_fmu
+fmu_dir_uri=file:///path/to/hypatia/dev/extracted_fmu
+processing_time_mean_ns=100000
+processing_time_std_dev_ns=20000
 start_time_in_s=0.
 comm_step_size_in_s=1e-4
 logging_on=false
@@ -114,6 +135,28 @@ fmu_res_write_period_in_s=0.5
 fmu_res_filename=simple-fmu-attached-device.csv
 fmu_res_varnames=list(x,k)
 ```
+
+### Class `FmuSharedDeviceFactory`
+
+This class eases the deployment devices attached to the same FMU in a simulation setup.
+The usage and function is similar to class `FMUAttachedDeviceFactory`.
+
+In the simulation config file (`config_ns3.properties`), the following properties are expected:
+
++ *enable_fmu_shared_devices*: enable the use of this factory (boolean)
++ *fmu_config_files*: mapping of a set of node IDs to FMU config file names (map); the set of node IDs is referred to by name and expected to be present in the configuration; for each node ID in the set, a device sharing the same attached FMU according to the specified FMU config file will be created
+
+Example simulation config file snippet:
+``` properties
+enable_fmu_shared_devices=true
+fmu_config_files=map(example_shared_devices:shared-fmu.properties)
+example_shared_devices=set(1251,1252)
+```
+
+In the FMU config files, class `FmuSharedDeviceFactory` expects the same properties as class `FMUAttachedDeviceFactory`.
+In addition, it expects the following property:
++ *shared_instance_name*: Common name of the shared FMU instance (string)
+
 
 ### Class `DeviceClientFactory`
 
@@ -125,10 +168,14 @@ In the simulation config file (`config_ns3.properties`), the following propertie
 + *enable_device_clients*: enable the use of this factory (boolean)
 + *send_devices_interval_ns*: interval in nanoseconds for sending requests from clients (integer)
 + *send_devices_endpoint_pairs*: set of node IDs defining pairs of clients and devices (set of strings of the form *"[client-id]->[device-id]"*)
++ *send_devices_processing_time_mean_ns*: average of processing time of clients in nanoseconds (double)
++ *send_devices_processing_time_std_dev_ns*: standard deviation of processing time of clients in nanoseconds (double)
 
 Example simulation config file snippet:
 ``` properties
 enable_device_clients=true
 send_devices_interval_ns=100000000
 send_devices_endpoint_pairs=set(1170->1252)
+send_devices_processing_time_mean_ns=100000
+send_devices_processing_time_std_dev_ns=20000
 ```
