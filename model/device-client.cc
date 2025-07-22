@@ -62,13 +62,18 @@ DeviceClient::GetTypeId(void) {
                       CallbackValue(MakeCallback(&DeviceClient::defaultReceiveCallbackImpl)),
                       MakeCallbackAccessor(&DeviceClient::m_msgReceiveCallback),
                       MakeCallbackChecker())
+        .AddAttribute("ProcessingTimeConstant",
+                      "Constant term of processing time",
+                      TimeValue(Seconds(0)),
+                      MakeTimeAccessor(&DeviceClient::m_processingTimeConstant),
+                      MakeTimeChecker())
         .AddAttribute("ProcessingTimeMean",
-                      "Average processing time",
+                      "Average of stochastic term of processing time",
                       TimeValue(MilliSeconds(1)),
                       MakeTimeAccessor(&DeviceClient::m_processingTimeMean),
                       MakeTimeChecker())
         .AddAttribute("ProcessingTimeStdDev",
-                      "Standard deviation of processing time",
+                      "Standard deviation of stochastic term of processing time",
                       TimeValue(MicroSeconds(50)),
                       MakeTimeAccessor(&DeviceClient::m_processingTimeStdDev),
                       MakeTimeChecker());
@@ -120,7 +125,7 @@ DeviceClient::StartApplication(void) {
     m_socket->SetRecvCallback(MakeCallback(&DeviceClient::HandleRead, this));
     m_socket->SetAllowBroadcast(true);
 
-    m_processingTime = CreateObject<ProcessingTime>(m_processingTimeMean, m_processingTimeStdDev);
+    m_processingTime = CreateObject<ProcessingTime>(m_processingTimeConstant, m_processingTimeMean, m_processingTimeStdDev);
 
     ScheduleProcessing(Seconds(0.));
 }

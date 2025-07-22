@@ -19,17 +19,23 @@ public:
 
   FmuDeviceHelper (uint16_t port, uint16_t nodeId, const std::string& modelIdentifier,
     const double& startTime, const double& commStepSize, bool loggingOn,
-    Time processing_time_mean = MilliSeconds(1), Time processing_time_std_dev = MicroSeconds(50));
+    Time processing_time_const = Seconds(0), 
+    Time processing_time_mean = MilliSeconds(1), 
+    Time processing_time_std_dev = MicroSeconds(50));
 
   FmuDeviceHelper (uint16_t port, uint16_t nodeId, const std::string& modelIdentifier,
     const double& startTime, const double& commStepSize, bool loggingOn, 
     DoStepCallbackType doStepCallback,
-    Time processing_time_mean = MilliSeconds(1), Time processing_time_std_dev = MicroSeconds(50));
+    Time processing_time_const = Seconds(0), 
+    Time processing_time_mean = MilliSeconds(1), 
+    Time processing_time_std_dev = MicroSeconds(50));
 
   FmuDeviceHelper (uint16_t port, uint16_t nodeId, const std::string& modelIdentifier,
     const double& startTime, const double& commStepSize, bool loggingOn, 
     InitCallbackType initCallback, DoStepCallbackType doStepCallback,
-    Time processing_time_mean = MilliSeconds(1), Time processing_time_std_dev = MicroSeconds(50));
+    Time processing_time_const = Seconds(0), 
+    Time processing_time_mean = MilliSeconds(1), 
+    Time processing_time_std_dev = MicroSeconds(50));
 
   void SetAttribute (std::string name, const AttributeValue &value);
   ApplicationContainer Install (Ptr<Node> node) const;
@@ -44,7 +50,7 @@ template <class FmuDeviceType>
 FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   uint16_t port, uint16_t nodeId, const std::string& modelIdentifier, 
   const double& startTime, const double& commStepSize, bool loggingOn,
-  Time processing_time_mean, Time processing_time_std_dev
+  Time processing_time_const, Time processing_time_mean, Time processing_time_std_dev
 ) {
   m_factory.SetTypeId (FmuDeviceType::GetTypeId ());
   SetAttribute ("Port", UintegerValue (port));
@@ -53,6 +59,7 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   SetAttribute ("ModelStartTime", DoubleValue(startTime));
   SetAttribute ("ModelStepSize", DoubleValue(commStepSize));
   SetAttribute ("LoggingOn", BooleanValue (loggingOn));
+  SetAttribute ("ProcessingTimeConstant", TimeValue (processing_time_const));
   SetAttribute ("ProcessingTimeMean", TimeValue (processing_time_mean));
   SetAttribute ("ProcessingTimeStdDev", TimeValue (processing_time_std_dev));
 }
@@ -62,7 +69,7 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   uint16_t port, uint16_t nodeId, const std::string& modelIdentifier, 
   const double& startTime, const double& commStepSize, bool loggingOn, 
   DoStepCallbackType doStepCallback,
-  Time processing_time_mean, Time processing_time_std_dev
+  Time processing_time_const, Time processing_time_mean, Time processing_time_std_dev
 ) {
   m_factory.SetTypeId (FmuDeviceType::GetTypeId ());
   SetAttribute ("Port", UintegerValue (port));
@@ -72,6 +79,7 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   SetAttribute ("ModelStepSize", DoubleValue(commStepSize));
   SetAttribute ("LoggingOn", BooleanValue (loggingOn));
   SetAttribute ("DoStepCallback", CallbackValue (doStepCallback));
+  SetAttribute ("ProcessingTimeConstant", TimeValue (processing_time_const));
   SetAttribute ("ProcessingTimeMean", TimeValue (processing_time_mean));
   SetAttribute ("ProcessingTimeStdDev", TimeValue (processing_time_std_dev));
 }
@@ -81,7 +89,7 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   uint16_t port, uint16_t nodeId, const std::string& modelIdentifier, 
   const double& startTime, const double& commStepSize, bool loggingOn, 
   InitCallbackType initCallback, DoStepCallbackType doStepCallback,
-  Time processing_time_mean, Time processing_time_std_dev
+  Time processing_time_const, Time processing_time_mean, Time processing_time_std_dev
 ) {
   m_factory.SetTypeId (FmuDeviceType::GetTypeId ());
   SetAttribute ("Port", UintegerValue (port));
@@ -92,6 +100,7 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   SetAttribute ("LoggingOn", BooleanValue (loggingOn));
   SetAttribute ("InitCallback", CallbackValue (initCallback));
   SetAttribute ("DoStepCallback", CallbackValue (doStepCallback));
+  SetAttribute ("ProcessingTimeConstant", TimeValue (processing_time_const));
   SetAttribute ("ProcessingTimeMean", TimeValue (processing_time_mean));
   SetAttribute ("ProcessingTimeStdDev", TimeValue (processing_time_std_dev));
 }

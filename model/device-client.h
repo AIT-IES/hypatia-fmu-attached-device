@@ -63,8 +63,9 @@ private:
   std::vector<int64_t> m_replyTimestamps;
   std::vector<int64_t> m_receiveReplyTimestamps;
 
-  Time m_processingTimeMean; //!< Average processing time.
-  Time m_processingTimeStdDev; //!< Standard deviation of processing time.
+  Time m_processingTimeConstant; //!< Constant term of processing time.
+  Time m_processingTimeMean; //!< Average of stochastic term of processing time.
+  Time m_processingTimeStdDev; //!< Standard deviation of stochastic term of processing time.
   Ptr<ProcessingTime> m_processingTime;
 
   MessageSendCallbackType m_msgSendCallback;

@@ -104,6 +104,7 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
             double fmuCommStepSizeInS = parse_positive_double(get_param_or_fail("comm_step_size_in_s", fmuConfig));
             bool loggingOn = toBoolean(get_param_or_fail("logging_on", fmuConfig));
             string modelIdentifier = get_param_or_fail("model_identifier", fmuConfig);
+            double proc_time_const_ns = parse_positive_double(get_param_or_fail("processing_time_const_ns", fmuConfig));
             double proc_time_mean_ns = parse_positive_double(get_param_or_fail("processing_time_mean_ns", fmuConfig));
             double proc_time_std_dev_ns = parse_positive_double(get_param_or_fail("processing_time_std_dev_ns", fmuConfig));
 
@@ -120,7 +121,7 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
             // Helper to install the application.
             FmuDeviceHelper<FmuAttachedDevice> fmuDevice(1025, endpoint, modelIdentifier, fmuStartTimeInS, 
                 fmuCommStepSizeInS, loggingOn, initCallback, doStepCallback,
-                NanoSeconds(proc_time_mean_ns), NanoSeconds(proc_time_std_dev_ns));
+                NanoSeconds(proc_time_const_ns), NanoSeconds(proc_time_mean_ns), NanoSeconds(proc_time_std_dev_ns));
 
             printf("    >> FMU instance successfully attached to device\n");
 

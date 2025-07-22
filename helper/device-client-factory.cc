@@ -78,16 +78,17 @@ DeviceClientFactory::DeviceClientFactory(
 
         // Install echo client from each node to each other node
         std::cout << "  > Setting up " << endpoint_pairs.size() << " device clients" << std::endl;
+        double proc_time_const_ns = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_const_ns"));
         double proc_time_mean_ns = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_mean_ns"));
         double proc_time_std_dev_ns = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_std_dev_ns"));
-        int64_t in_between_ns = interval_ns / (endpoints.size() - 1);
-        int counter = 0;
+        // int64_t in_between_ns = interval_ns / (endpoints.size() - 1);
+        // int counter = 0;
         int64_t prev_i = -1;
         for (std::pair<int64_t, int64_t>& p : endpoint_pairs) {
 
             if (p.first != prev_i) {
                 prev_i = p.first;
-                counter = 0;
+                // counter = 0;
             }
 
             // Helper to install the source application
@@ -98,6 +99,7 @@ DeviceClientFactory::DeviceClientFactory(
                     p.second,
                     send_callback,
                     receive_callback,
+                    NanoSeconds(proc_time_const_ns),
                     NanoSeconds(proc_time_mean_ns),
                     NanoSeconds(proc_time_std_dev_ns)
             );
@@ -105,10 +107,12 @@ DeviceClientFactory::DeviceClientFactory(
 
             // Install it on the node and start it right now
             ApplicationContainer app = source.Install(nodes.Get(p.first));
-            app.Start(NanoSeconds(counter * in_between_ns));
+            // app.Start(NanoSeconds(counter * in_between_ns));
+            app.Start(Time(0.));
             m_apps.push_back(app);
-
-            counter++;
+            // std::cout << "    >> Client " << p.first << "->" << p.second << " will start with " << (counter*in_between_ns) << "ns delay" << std::endl;
+            
+            // counter++;
         }
         m_basicSimulation->RegisterTimestamp("Setup device clients");
 

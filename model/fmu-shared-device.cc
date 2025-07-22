@@ -98,13 +98,18 @@ namespace ns3 {
                           StringValue(),
                           MakeStringAccessor (&FmuSharedDevice::m_sharedFmuInstanceName),
                           MakeStringChecker())
+            .AddAttribute("ProcessingTimeConstant",
+                          "Constant term of processing time",
+                          TimeValue(Seconds(0)),
+                          MakeTimeAccessor(&FmuSharedDevice::m_processingTimeConstant),
+                          MakeTimeChecker())
             .AddAttribute("ProcessingTimeMean",
-                          "Average processing time",
+                          "Average of stochastic term of processing time",
                           TimeValue(MilliSeconds(1)),
                           MakeTimeAccessor(&FmuSharedDevice::m_processingTimeMean),
                           MakeTimeChecker())
             .AddAttribute("ProcessingTimeStdDev",
-                          "Standard deviation of processing time",
+                          "Standard deviation of stochastic term of processing time",
                           TimeValue(MicroSeconds(50)),
                           MakeTimeAccessor(&FmuSharedDevice::m_processingTimeStdDev),
                           MakeTimeChecker());

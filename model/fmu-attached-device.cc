@@ -91,13 +91,18 @@ namespace ns3 {
                           StringValue(),
                           MakeStringAccessor (&FmuAttachedDevice::m_resVarnamesList),
                           MakeStringChecker())
+            .AddAttribute("ProcessingTimeConstant",
+                          "Constant term of processing time",
+                          TimeValue(Seconds(0)),
+                          MakeTimeAccessor(&FmuAttachedDevice::m_processingTimeConstant),
+                          MakeTimeChecker())
             .AddAttribute("ProcessingTimeMean",
-                          "Average processing time",
+                          "Average of stochastic term of processing time",
                           TimeValue(MilliSeconds(1)),
                           MakeTimeAccessor(&FmuAttachedDevice::m_processingTimeMean),
                           MakeTimeChecker())
             .AddAttribute("ProcessingTimeStdDev",
-                          "Standard deviation of processing time",
+                          "Standard deviation of stochastic term of processing time",
                           TimeValue(MicroSeconds(50)),
                           MakeTimeAccessor(&FmuAttachedDevice::m_processingTimeStdDev),
                           MakeTimeChecker());
@@ -181,7 +186,7 @@ namespace ns3 {
 
         m_socket->SetRecvCallback(MakeCallback(&FmuAttachedDevice::HandleRead, this));
 
-        m_processingTime = CreateObject<ProcessingTime>(m_processingTimeMean, m_processingTimeStdDev);
+        m_processingTime = CreateObject<ProcessingTime>(m_processingTimeConstant, m_processingTimeMean, m_processingTimeStdDev);
 
         // Initialize periodic writing of FMU model data.
         if (m_resWrite) {

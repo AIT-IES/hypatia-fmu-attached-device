@@ -9,7 +9,7 @@ namespace ns3 {
 DeviceClientHelper::DeviceClientHelper (
   Address address, uint16_t port, uint64_t from_node_id, uint64_t to_node_id, 
   MessageSendCallbackType send_callback, MessageReceiveCallbackType receive_callback,
-  Time processing_time_mean, Time processing_time_std_dev)
+  Time processing_time_const, Time processing_time_mean, Time processing_time_std_dev)
 {
   m_factory.SetTypeId (DeviceClient::GetTypeId ());
   SetAttribute ("RemoteAddress", AddressValue (address));
@@ -18,6 +18,7 @@ DeviceClientHelper::DeviceClientHelper (
   SetAttribute ("ToNodeId", UintegerValue (to_node_id));
   SetAttribute ("MsgSendCallback", CallbackValue (send_callback));
   SetAttribute ("MsgReceiveCallback", CallbackValue (receive_callback));
+  SetAttribute ("ProcessingTimeConstant", TimeValue (processing_time_const));
   SetAttribute ("ProcessingTimeMean", TimeValue (processing_time_mean));
   SetAttribute ("ProcessingTimeStdDev", TimeValue (processing_time_std_dev));
 }
