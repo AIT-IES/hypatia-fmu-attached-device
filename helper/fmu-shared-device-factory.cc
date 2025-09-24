@@ -1,5 +1,6 @@
 #include "fmu-shared-device-factory.h"
 #include "fmu-device-helper.h"
+#include "factory-util.h"
 
 #include "ns3/exp-util.h"
 
@@ -28,6 +29,20 @@ bool toBoolean(const std::string & v)
     return !v.empty () &&
         (strcasecmp (v.c_str (), "true") == 0 ||
          atoi (v.c_str ()) != 0);
+}
+
+void checkEndpointPairs(
+    const std::vector<std::pair<int64_t, int64_t>>& endpoint_pairs,
+    const std::set<int64_t>& shared_endpoints
+) {
+    for (auto p : endpoint_pairs)
+    {
+        std::set<int64_t>::const_iterator find = shared_endpoints.find(p.first);
+        NS_ABORT_MSG_UNLESS(
+            find != shared_endpoints.end(),
+            format_string("Not a shared endpoint: %ld", p.first)
+        );
+    }
 }
 
 }
@@ -121,6 +136,14 @@ FmuSharedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulatio
             std::string config_shared_endpoints = basicSimulation->GetConfigParamOrFail(config.first);
             std::set<int64_t> shared_endpoints = parse_set_positive_int64(config_shared_endpoints);
 
+            bool sendData = parse_boolean(get_param_or_default("send_data", "false", fmuConfig));
+            double sendDataInterval = parse_positive_double(get_param_or_default("send_data_interval_s", "1.0", fmuConfig));
+
+            // Parse pairs of connected endpoints.
+            std::vector<std::pair<int64_t, int64_t>> send_data_endpoints =
+                parse_endpoint_pairs(get_param_or_default("send_data_endpoints", "set()", fmuConfig), topology);
+            checkEndpointPairs(send_data_endpoints, shared_endpoints);
+
             bool firstEndpoint = true;
             for (int64_t endpoint : shared_endpoints)
             {
@@ -135,7 +158,8 @@ FmuSharedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulatio
                 printf("    >> Shared FMU instance successfully attached to device\n");
 
                 bool fmuResultsWrite = toBoolean(get_param_or_fail("fmu_res_write", fmuConfig));
-                if (fmuResultsWrite && firstEndpoint) { // Only write results for first endpoint (avoid duplicate results).
+                if (fmuResultsWrite && firstEndpoint) // Only write results for first endpoint (avoid duplicate results).
+                {
                     printf("  > Read FMU configuration for writing results\n");
                     fmuDevice.SetAttribute("ResultsWrite", BooleanValue(fmuResultsWrite));
 
@@ -155,6 +179,24 @@ FmuSharedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulatio
                     printf("    >> not writing any results\n");
                 }
 
+                if (sendData)
+                {
+                    for (std::pair<int64_t, int64_t>& p : send_data_endpoints)
+                    {
+                        if (endpoint != p.first) { continue; }
+
+                        int64_t sendDataEndpoint = p.second;
+                        uint32_t sendDataPort = 1025;
+    
+                        fmuDevice.SetAttribute("SendData", BooleanValue (sendData));
+                        fmuDevice.SetAttribute("SendInterval", TimeValue(Seconds(sendDataInterval)));
+                        fmuDevice.SetAttribute("RemoteAddress", AddressValue (m_nodes.Get(sendDataEndpoint)->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal()));
+                        fmuDevice.SetAttribute("RemotePort", UintegerValue (sendDataPort));
+                        
+                        printf("    >> sending data every %f seconds to endpoint %ld (port %d)\n", sendDataInterval, sendDataEndpoint, sendDataPort);
+                    }
+                }
+                
                 // Install it on the node and start it right now
                 ApplicationContainer app = fmuDevice.Install(m_nodes.Get(endpoint));
                 app.Start(Seconds(0.0));

@@ -39,11 +39,15 @@ public:
         Ptr<BasicSimulation> basicSimulation, Ptr<Topology> topology, 
         DeviceClient::MessageSendCallbackType send_callback,
         DeviceClient::MessageReceiveCallbackType receive_callback);
+    DeviceClientFactory(
+        Ptr<BasicSimulation> basicSimulation, Ptr<Topology> topology, 
+        DeviceClient::MessageReceiveCallbackType receive_callback);
     void WriteResults();
 
 protected:
     Ptr<BasicSimulation> m_basicSimulation;
     bool m_enabled;
+    bool m_send_data;
     std::vector<ApplicationContainer> m_apps;
     std::string m_device_csv_filename;
     std::string m_device_txt_filename;

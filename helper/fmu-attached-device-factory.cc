@@ -146,6 +146,20 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
                 printf("    >> not writing any results\n");
             }
 
+            bool sendData = parse_boolean(get_param_or_default("send_data", "false", fmuConfig));
+            if (sendData) {
+                double sendDataInterval = parse_positive_double(get_param_or_default("send_data_interval_s", "1.0", fmuConfig));
+                int64_t sendDataEndpoint = parse_positive_int64(get_param_or_fail("send_data_endpoint", fmuConfig));
+                uint32_t sendDataPort = 1025;
+
+                fmuDevice.SetAttribute("SendData", BooleanValue (sendData));
+                fmuDevice.SetAttribute("SendInterval", TimeValue(Seconds(sendDataInterval)));
+                fmuDevice.SetAttribute("RemoteAddress", AddressValue (m_nodes.Get(sendDataEndpoint)->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal()));
+                fmuDevice.SetAttribute("RemotePort", UintegerValue (sendDataPort));
+                
+                printf("    >> sending data every %f seconds to endpoint %ld (port %d)\n", sendDataInterval, sendDataEndpoint, sendDataPort);
+            }
+
             // Install it on the node and start it right now
             ApplicationContainer app = fmuDevice.Install(m_nodes.Get(endpoint));
             app.Start(Seconds(0.0));

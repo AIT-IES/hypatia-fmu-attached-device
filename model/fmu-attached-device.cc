@@ -17,7 +17,7 @@
 #include "ns3/fmu-util.h"
 
 #include "fmu-attached-device.h"
-#include "send-reply-context.h"
+#include "send-context.h"
 
 #include <cmath>
 #include <fstream>
@@ -45,6 +45,26 @@ namespace ns3 {
                           UintegerValue(0),
                           MakeUintegerAccessor(&FmuAttachedDevice::m_nodeId),
                           MakeUintegerChecker<uint64_t>())
+            .AddAttribute("SendData",
+                          "Flag to indicate if data should be sent.",
+                          BooleanValue(false),
+                          MakeBooleanAccessor(&FmuAttachedDevice::m_sendData),
+                          MakeBooleanChecker())
+            .AddAttribute("SendInterval",
+                          "The time to wait between sending packets",
+                          TimeValue(Seconds(1.0)),
+                          MakeTimeAccessor(&FmuAttachedDevice::m_sendInterval),
+                          MakeTimeChecker())
+            .AddAttribute("RemoteAddress",
+                          "The destination address of the outbound packets",
+                          AddressValue(),
+                          MakeAddressAccessor(&FmuAttachedDevice::m_peerAddress),
+                          MakeAddressChecker())
+            .AddAttribute("RemotePort",
+                          "The destination port of the outbound packets",
+                          UintegerValue(0),
+                          MakeUintegerAccessor(&FmuAttachedDevice::m_peerPort),
+                          MakeUintegerChecker<uint16_t>())
             .AddAttribute("ModelIdentifier", "FMU model identifier.",
                           StringValue(),
                           MakeStringAccessor(&FmuAttachedDevice::m_modelIdentifier),
@@ -115,6 +135,7 @@ namespace ns3 {
         m_fmu = 0;
         m_writeDataEvent = EventId();
         m_sendEvent = EventId();
+        m_processEvent = EventId();
         m_processingTime = 0;
     }
 
@@ -140,9 +161,9 @@ namespace ns3 {
         NS_ABORT_MSG_UNLESS(status == fmippOK, "initialization of FMU failed");
     }
 
-    string
+    Payload
     FmuAttachedDevice::defaultDoStepCallbackImpl(
-        Ptr<RefFMU> fmu, uint64_t nodeId, const std::string& payload, const double& time, const double& commStepSize
+        Ptr<RefFMU> fmu, uint64_t nodeId, const std::string& payload, uint32_t payloadId, bool isReply, const double& time, const double& commStepSize
     ) {
         double tt = fmu->getTime();
         uint32_t nSteps = 0;
@@ -156,8 +177,13 @@ namespace ns3 {
             ++nSteps;
         } while (tt < time);
 
-        // Return default message.
-        return string("FMU model stepped ") + to_string(nSteps) + string(" times until t=") + to_string(tt);
+        if (isReply) {
+            // Return default message.
+            string msg = string("FMU model stepped ") + to_string(nSteps) + string(" times until t=") + to_string(tt);
+            return Payload(msg);
+        } else {
+            return Payload();
+        }
     }
     
     void
@@ -188,6 +214,10 @@ namespace ns3 {
 
         m_processingTime = CreateObject<ProcessingTime>(m_processingTimeConstant, m_processingTimeMean, m_processingTimeStdDev);
 
+        if (m_sendData) {
+            ScheduleProcessing(Seconds(0));
+        }
+
         // Initialize periodic writing of FMU model data.
         if (m_resWrite) {
             // Clean-up previously written results.
@@ -212,10 +242,44 @@ namespace ns3 {
     }
 
     void
+    FmuAttachedDevice::ScheduleProcessing(Time dt) {
+        NS_LOG_FUNCTION(this << dt);
+        m_processEvent = Simulator::Schedule(dt, &FmuAttachedDevice::Process, this);
+    }
+
+    void
+    FmuAttachedDevice::Process(void) {
+        NS_LOG_FUNCTION(this << " - start processing at " << Simulator::Now());
+        NS_ABORT_MSG_UNLESS(m_processEvent.IsExpired(), "Previous processing has not finished yet.");
+        NS_ABORT_MSG_UNLESS(m_sendEvent.IsExpired(), "Previous message has not been sent yet.");
+
+        double t = Simulator::Now().GetSeconds();
+        Payload pl = stepFmu("", Payload::INVALID, false, t);
+        Ptr<Packet> p = pl.GetTransmitBuffer() ? 
+            Create<Packet>((uint8_t*) pl.GetBuffer().c_str(), pl.GetBufferSize()) :
+            Create<Packet>(pl.GetBufferSize());
+
+        // Creates one with the current timestamp
+        SeqTsHeader seqTs;
+        seqTs.SetSeq(pl.GetId());
+        p->AddHeader(seqTs);
+
+        // Send out
+        m_sendEvent = Simulator::Schedule(
+            m_processingTime->GetValue(), &FmuAttachedDevice::Send, this, 
+            Create<SendContext>(m_socket, p, InetSocketAddress(Ipv4Address::ConvertFrom(m_peerAddress), m_peerPort))
+        );
+
+        // Schedule next transmit
+        ScheduleProcessing(m_sendInterval);
+    }
+
+    void
     FmuAttachedDevice::HandleRead(Ptr<Socket> socket) {
         NS_LOG_FUNCTION(this << socket);
-
-        NS_ASSERT(m_sendEvent.IsExpired());
+        if (!m_sendEvent.IsExpired()) {
+            NS_LOG_WARN("Event not expired: "  << m_sendEvent.GetTs());
+        }
 
         Time processingTime = m_processingTime->GetValue();
         Ptr<Packet> packetIn;
@@ -231,6 +295,7 @@ namespace ns3 {
             // What we receive
             SeqTsHeader incomingSeqTs;
             packetIn->RemoveHeader(incomingSeqTs);
+            uint32_t payloadId = incomingSeqTs.GetSeq();
 
             uint8_t *buffer = new uint8_t[packetIn->GetSize()];
             packetIn->CopyData(buffer, packetIn->GetSize());
@@ -239,24 +304,26 @@ namespace ns3 {
             delete buffer;
 
             double t = Simulator::Now().GetSeconds();
-            string msg = stepFmu(payload, t);
-            packetOut = Create<Packet>((uint8_t*) msg.c_str(), msg.length() + 1);
+            Payload pl = stepFmu(payload, payloadId, true, t);
+            packetOut = pl.GetTransmitBuffer() ? 
+                Create<Packet>((uint8_t*) pl.GetBuffer().c_str(), pl.GetBufferSize()) :
+                Create<Packet>(pl.GetBufferSize());
 
             // Add header
             SeqTsHeader outgoingSeqTs; // Creates one with the current timestamp
-            outgoingSeqTs.SetSeq(incomingSeqTs.GetSeq());
+            outgoingSeqTs.SetSeq(payloadId);
             packetOut->AddHeader(outgoingSeqTs);
 
             // Send back with the new timestamp on it.
             // socket->SendTo(packetOut, 0, from);
             m_sendEvent = Simulator::Schedule(
-                processingTime, &FmuAttachedDevice::Send, this, Create<SendReplyContext>(socket, packetOut, from)
+                processingTime, &FmuAttachedDevice::Send, this, Create<SendContext>(socket, packetOut, from)
             );
         }
     }
 
     void
-    FmuAttachedDevice::Send(Ptr<SendReplyContext> reply) {
+    FmuAttachedDevice::Send(Ptr<SendContext> reply) {
         NS_LOG_DEBUG ("At time " << Simulator::Now ().GetSeconds () << "s " <<
         "send " << reply->m_packet->GetSize () << " bytes to " <<
         InetSocketAddress::ConvertFrom (reply->m_address).GetIpv4 () << " port " <<
@@ -273,7 +340,7 @@ namespace ns3 {
         double t = Simulator::Now().GetSeconds();
         double tt = m_fmu->getTime();
         if (tt < t) { 
-            defaultDoStepCallbackImpl(m_fmu, m_nodeId, "", t, m_commStepSizeInS);
+            defaultDoStepCallbackImpl(m_fmu, m_nodeId, "", Payload::INVALID, false, t, m_commStepSizeInS);
             tt = m_fmu->getTime();
         }
 
@@ -354,9 +421,9 @@ namespace ns3 {
         m_initCallback(m_fmu, m_nodeId, instanceName, m_startTimeInS);
     }
 
-    string
-    FmuAttachedDevice::stepFmu(const std::string& payload, const double& t) {
-        return m_doStepCallback(m_fmu, m_nodeId, payload, t, m_commStepSizeInS);
+    Payload
+    FmuAttachedDevice::stepFmu(const std::string& payload, uint32_t payloadId, bool isReply, const double& t) {
+        return m_doStepCallback(m_fmu, m_nodeId, payload, payloadId, isReply, t, m_commStepSizeInS);
     }
 
 } // Namespace ns3

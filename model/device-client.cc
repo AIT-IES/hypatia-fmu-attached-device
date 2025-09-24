@@ -8,6 +8,7 @@
 #include "ns3/simulator.h"
 #include "ns3/socket-factory.h"
 #include "ns3/packet.h"
+#include "ns3/boolean.h"
 #include "ns3/integer.h"
 #include "ns3/uinteger.h"
 #include "ns3/trace-source-accessor.h"
@@ -27,6 +28,11 @@ DeviceClient::GetTypeId(void) {
         .SetParent<Application>()
         .SetGroupName("Applications")
         .AddConstructor<DeviceClient>()
+        .AddAttribute("SendData",
+                      "Flag to indicate if data should be sent.",
+                      BooleanValue(true),
+                      MakeBooleanAccessor(&DeviceClient::m_sendData),
+                      MakeBooleanChecker())
         .AddAttribute("Interval",
                       "The time to wait between packets",
                       TimeValue(Seconds(1.0)),
@@ -49,9 +55,9 @@ DeviceClient::GetTypeId(void) {
                       MakeUintegerChecker<uint64_t>())
         .AddAttribute("ToNodeId",
                       "To node identifier",
-                      UintegerValue(0),
-                      MakeUintegerAccessor(&DeviceClient::m_toNodeId),
-                      MakeUintegerChecker<uint64_t>())
+                      IntegerValue(-1),
+                      MakeIntegerAccessor(&DeviceClient::m_toNodeId),
+                      MakeIntegerChecker<int64_t>())
         .AddAttribute("MsgSendCallback",
                       "Callback for sending a payload message",
                       CallbackValue(MakeCallback(&DeviceClient::defaultSendCallbackImpl)),
@@ -105,29 +111,34 @@ DeviceClient::DoDispose(void) {
 void
 DeviceClient::StartApplication(void) {
     NS_LOG_FUNCTION(this);
-    if (m_socket == 0) {
+    static uint16_t port = 1025; 
+    if (m_socket == 0)
+    {
         TypeId tid = TypeId::LookupByName("ns3::UdpSocketFactory");
         m_socket = Socket::CreateSocket(GetNode(), tid);
-        if (Ipv4Address::IsMatchingType(m_peerAddress) == true) {
-            if (m_socket->Bind() == -1) {
-                NS_FATAL_ERROR("Failed to bind socket");
+
+        InetSocketAddress local = InetSocketAddress(Ipv4Address::GetAny(), port++);
+        if (m_socket->Bind(local) == -1) {
+            NS_FATAL_ERROR("Failed to bind socket");
+        }
+
+        if (m_sendData)
+        { 
+            if (Ipv4Address::IsMatchingType(m_peerAddress) == true) {
+                m_socket->Connect(InetSocketAddress(Ipv4Address::ConvertFrom(m_peerAddress), m_peerPort));
+            } else if (InetSocketAddress::IsMatchingType(m_peerAddress) == true) {
+                m_socket->Connect(m_peerAddress);
+            } else {
+                NS_ASSERT_MSG(false, "Incompatible address type: " << m_peerAddress);
             }
-            m_socket->Connect(InetSocketAddress(Ipv4Address::ConvertFrom(m_peerAddress), m_peerPort));
-        } else if (InetSocketAddress::IsMatchingType(m_peerAddress) == true) {
-            if (m_socket->Bind() == -1) {
-                NS_FATAL_ERROR("Failed to bind socket");
-            }
-            m_socket->Connect(m_peerAddress);
-        } else {
-            NS_ASSERT_MSG(false, "Incompatible address type: " << m_peerAddress);
+
+            ScheduleProcessing(Seconds(0.)); 
         }
     }
     m_socket->SetRecvCallback(MakeCallback(&DeviceClient::HandleRead, this));
     m_socket->SetAllowBroadcast(true);
 
     m_processingTime = CreateObject<ProcessingTime>(m_processingTimeConstant, m_processingTimeMean, m_processingTimeStdDev);
-
-    ScheduleProcessing(Seconds(0.));
 }
 
 void
@@ -154,15 +165,18 @@ DeviceClient::Process(void) {
     NS_ABORT_MSG_UNLESS(m_sendEvent.IsExpired(), "Previous message has not been sent yet.");
 
     // Packet with message and timestamp.
-    string msg = m_msgSendCallback(m_fromNodeId, m_toNodeId);
-    Ptr<Packet> p = Create<Packet>((uint8_t*) msg.c_str(), msg.length() + 1);
+    const Payload& pl = m_msgSendCallback(m_fromNodeId, m_toNodeId);
+    Ptr<Packet> p = pl.GetTransmitBuffer() ? 
+        Create<Packet>((uint8_t*) pl.GetBuffer().c_str(), pl.GetBufferSize()) :
+        Create<Packet>(pl.GetBufferSize());
 
     // Creates one with the current timestamp
     SeqTsHeader seqTs;
-    seqTs.SetSeq(m_sent);
+    seqTs.SetSeq(pl.GetId());
     p->AddHeader(seqTs);
 
     // Timestamps
+    m_sentPayloadIds[pl.GetId()] = m_sent;
     m_sendRequestTimestamps.push_back(Simulator::Now().GetNanoSeconds());
     m_replyTimestamps.push_back(-1);
     m_receiveReplyTimestamps.push_back(-1);
@@ -194,16 +208,25 @@ DeviceClient::HandleRead(Ptr <Socket> socket) {
         // Receiving header
         SeqTsHeader incomingSeqTs;
         packet->RemoveHeader (incomingSeqTs);
-        uint32_t seqNo = incomingSeqTs.GetSeq();
+        uint32_t payloadId = incomingSeqTs.GetSeq();
 
-        // Update the local timestamps
-        m_replyTimestamps[seqNo] = incomingSeqTs.GetTs().GetNanoSeconds();
-        m_receiveReplyTimestamps[seqNo] = Simulator::Now().GetNanoSeconds();
+        map<uint32_t, uint32_t>::iterator itFindSent = m_sentPayloadIds.find(payloadId);
+        bool isReply = (itFindSent != m_sentPayloadIds.end());
+
+        if (isReply) {
+            uint32_t sent = itFindSent->second;
+
+            // Update the local timestamps
+            m_replyTimestamps[sent] = incomingSeqTs.GetTs().GetNanoSeconds();
+            m_receiveReplyTimestamps[sent] = Simulator::Now().GetNanoSeconds();
+
+            m_sentPayloadIds.erase(itFindSent);
+        }
 
         uint8_t *buffer = new uint8_t[packet->GetSize ()];
         packet->CopyData(buffer, packet->GetSize ());
         string s = string(buffer, buffer+packet->GetSize());
-        m_msgReceiveCallback(s, m_fromNodeId, m_toNodeId);
+        m_msgReceiveCallback(s, payloadId, isReply, m_fromNodeId, m_toNodeId);
         NS_LOG_DEBUG ("Buffer: size = " << packet->GetSize() << " - content = >>" << s << "<<");
         delete buffer;
     }
@@ -213,7 +236,7 @@ uint64_t DeviceClient::GetFromNodeId() {
     return m_fromNodeId;
 }
 
-uint64_t DeviceClient::GetToNodeId() {
+int64_t DeviceClient::GetToNodeId() {
     return m_toNodeId;
 }
 

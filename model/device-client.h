@@ -4,12 +4,14 @@
 #include "ns3/application.h"
 #include "ns3/callback.h"
 #include "ns3/event-id.h"
-#include "ns3/ipv4-address.h"
+// #include "ns3/ipv4-address.h"
+#include "ns3/payload.h"
 #include "ns3/processing-time.h"
 #include "ns3/ptr.h"
 #include "ns3/seq-ts-header.h"
 #include "ns3/traced-callback.h"
 
+#include <map>
 #include <string>
 
 namespace ns3 {
@@ -20,19 +22,22 @@ class Packet;
 class DeviceClient : public Application 
 {
 public:
-  typedef Callback<std::string, uint64_t, uint64_t> MessageSendCallbackType;
-  typedef Callback<void, std::string, uint64_t, uint64_t> MessageReceiveCallbackType;
+  typedef Callback<Payload, uint64_t, int64_t> MessageSendCallbackType;
+  typedef Callback<void, std::string, uint32_t, bool, uint64_t, int64_t> MessageReceiveCallbackType;
 
   static TypeId GetTypeId (void);
   DeviceClient();
   virtual ~DeviceClient ();
 
   uint64_t GetFromNodeId();
-  uint64_t GetToNodeId();
+  int64_t GetToNodeId();
   uint32_t GetSent();
   std::vector<int64_t> GetSendRequestTimestamps();
   std::vector<int64_t> GetReplyTimestamps();
   std::vector<int64_t> GetReceiveReplyTimestamps();
+
+  static Payload defaultSendCallbackImpl(uint64_t from, int64_t to) { return Payload(0); }
+  static void defaultReceiveCallbackImpl(std::string str, uint32_t payloadId, bool isReply, uint64_t from, int64_t to) {}
 
 protected:
   virtual void DoDispose (void);
@@ -46,19 +51,20 @@ private:
   void Send (Ptr<Packet> p);
   void HandleRead (Ptr<Socket> socket);
 
-  static std::string defaultSendCallbackImpl(uint64_t from, uint64_t to) { return std::string(); }
-  static void defaultReceiveCallbackImpl(std::string str, uint64_t from, uint64_t to) {}
-
   Time m_interval; //!< Packet inter-send time
   Ptr<Socket> m_socket; //!< Socket
+
+  bool m_sendData;
   Address m_peerAddress; //!< Remote peer address
   uint16_t m_peerPort; //!< Remote peer port
+
   EventId m_processEvent; //!< Event to process the next packet
   EventId m_sendEvent; //!< Event to send the next packet
 
   uint64_t m_fromNodeId;
-  uint64_t m_toNodeId;
+  int64_t m_toNodeId; //!< Set to negative values if unused.
   uint32_t m_sent; //!< Counter for sent packets
+  std::map<uint32_t, uint32_t> m_sentPayloadIds;
   std::vector<int64_t> m_sendRequestTimestamps;
   std::vector<int64_t> m_replyTimestamps;
   std::vector<int64_t> m_receiveReplyTimestamps;

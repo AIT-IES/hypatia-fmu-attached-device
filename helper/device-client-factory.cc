@@ -2,7 +2,20 @@
 #include "ns3/device-client-helper.h"
 #include "ns3/callback.h"
 
+#include "factory-util.h"
+
 namespace ns3 {
+
+
+DeviceClientFactory::DeviceClientFactory(
+    Ptr<BasicSimulation> basicSimulation, Ptr<Topology> topology, 
+    DeviceClient::MessageReceiveCallbackType receive_callback
+) : DeviceClientFactory::DeviceClientFactory(
+    basicSimulation, 
+    topology,
+    MakeCallback(&DeviceClient::defaultSendCallbackImpl),
+    receive_callback
+) {}
 
 DeviceClientFactory::DeviceClientFactory(
     Ptr<BasicSimulation> basicSimulation, Ptr<Topology> topology, 
@@ -22,77 +35,55 @@ DeviceClientFactory::DeviceClientFactory(
         std::cout << "  > Device client factory enabled" << std::endl;
 
         NodeContainer nodes = topology->GetNodes();
-        int64_t interval_ns = parse_positive_int64(basicSimulation->GetConfigParamOrFail("send_devices_interval_ns"));
-        std::string send_endpoints_pair_str = basicSimulation->GetConfigParamOrFail("send_devices_endpoint_pairs");
         uint32_t system_id = m_basicSimulation->GetSystemId();
         bool enable_distributed = m_basicSimulation->IsDistributedEnabled();
-        std::vector<int64_t> distributed_node_system_id_assignment = m_basicSimulation->GetDistributedNodeSystemIdAssignment();
 
-        std::vector<std::pair<int64_t, int64_t>> endpoint_pairs;
-        std::set<std::string> string_set = parse_set_string(send_endpoints_pair_str);
-        for (std::string s : string_set) {
-            std::vector<std::string> spl = split_string(s, "->", 2);
-            int64_t a = parse_positive_int64(spl[0]);
-            int64_t b = parse_positive_int64(spl[1]);
-            if (a == b) {
-                throw std::invalid_argument(format_string("Cannot connect pair to itself on node %" PRIu64 "", a));
-            }
-            if (!topology->IsValidEndpoint(a)) {
-                throw std::invalid_argument(format_string("Left node identifier in device pair is not a valid endpoint: %" PRIu64 "", a));
-            }
-            if (!topology->IsValidEndpoint(b)) {
-                throw std::invalid_argument(format_string("Right node identifier in device pair is not a valid endpoint: %" PRIu64 "", b));
-            }
-            if (!enable_distributed || distributed_node_system_id_assignment[a] == system_id) {
-                endpoint_pairs.push_back(std::make_pair(a, b));
-            }
-        }
+        m_send_data = parse_boolean(basicSimulation->GetConfigParamOrDefault("send_devices", "true"));
+        if (m_send_data)
+        {
+            // Parse pairs of connected endpoints.
+            std::vector<std::pair<int64_t, int64_t>> endpoint_pairs =
+                parse_endpoint_pairs(basicSimulation->GetConfigParamOrFail("devices_endpoint_pairs"), topology);
 
-        // Sort the pairs ascending such that we can do some spacing
-        std::sort(endpoint_pairs.begin(), endpoint_pairs.end());
+            // Sort the pairs ascending such that we can do some spacing
+            std::sort(endpoint_pairs.begin(), endpoint_pairs.end());
 
-        // Schedule read
-        printf("  > Determined device pairs (size: %lu)\n", endpoint_pairs.size());
-        m_basicSimulation->RegisterTimestamp("Determined device pairs");
+            // Schedule read
+            printf("  > Determined device pairs (size: %lu)\n", endpoint_pairs.size());
+            m_basicSimulation->RegisterTimestamp("Determined device pairs");
 
-        // Determine filenames
-        if (enable_distributed) {
-            m_device_csv_filename = m_basicSimulation->GetLogsDir() + "/system_" + std::to_string(system_id) + "_send_device.csv";
-            m_device_txt_filename = m_basicSimulation->GetLogsDir() + "/system_" + std::to_string(system_id) + "_send_device.txt";
-        } else {
-            m_device_csv_filename = m_basicSimulation->GetLogsDir() + "/send_device.csv";
-            m_device_txt_filename = m_basicSimulation->GetLogsDir() + "/send_device.txt";
-        }
-
-        // Remove files if they are there
-        remove_file_if_exists(m_device_csv_filename);
-        remove_file_if_exists(m_device_txt_filename);
-        printf("  > Removed previous log files if present\n");
-        m_basicSimulation->RegisterTimestamp("Remove previous log files");
-
-        // Info
-        std::cout << "  > Send interval: " << interval_ns << " ns" << std::endl;
-
-        // Endpoints
-        std::set<int64_t> endpoints = topology->GetEndpoints();
-
-        // Install echo client from each node to each other node
-        std::cout << "  > Setting up " << endpoint_pairs.size() << " device clients" << std::endl;
-        double proc_time_const_ns = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_const_ns"));
-        double proc_time_mean_ns = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_mean_ns"));
-        double proc_time_std_dev_ns = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_std_dev_ns"));
-        // int64_t in_between_ns = interval_ns / (endpoints.size() - 1);
-        // int counter = 0;
-        int64_t prev_i = -1;
-        for (std::pair<int64_t, int64_t>& p : endpoint_pairs) {
-
-            if (p.first != prev_i) {
-                prev_i = p.first;
-                // counter = 0;
+            // Determine filenames
+            if (enable_distributed) {
+                m_device_csv_filename = m_basicSimulation->GetLogsDir() + "/system_" + std::to_string(system_id) + "_send_device.csv";
+                m_device_txt_filename = m_basicSimulation->GetLogsDir() + "/system_" + std::to_string(system_id) + "_send_device.txt";
+            } else {
+                m_device_csv_filename = m_basicSimulation->GetLogsDir() + "/send_device.csv";
+                m_device_txt_filename = m_basicSimulation->GetLogsDir() + "/send_device.txt";
             }
 
-            // Helper to install the source application
-            DeviceClientHelper source(
+            // Remove files if they are there
+            remove_file_if_exists(m_device_csv_filename);
+            remove_file_if_exists(m_device_txt_filename);
+            printf("  > Removed previous log files if present\n");
+            m_basicSimulation->RegisterTimestamp("Remove previous log files");
+
+            // Install echo client from each node to each other node
+            std::cout << "  > Setting up " << endpoint_pairs.size() << " device clients" << std::endl;
+
+            int64_t interval_ns = parse_positive_int64(basicSimulation->GetConfigParamOrFail("send_devices_interval_ns"));
+            std::cout << "  > Send interval: " << interval_ns << " ns" << std::endl;
+
+            double proc_time_const_ns = 
+                parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_const_ns"));
+            double proc_time_mean_ns = 
+                parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_mean_ns"));
+            double proc_time_std_dev_ns = 
+                parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_std_dev_ns"));
+
+            for (std::pair<int64_t, int64_t>& p : endpoint_pairs) {
+
+                // Helper to install the source application
+                DeviceClientHelper source(
                     nodes.Get(p.second)->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal(),
                     1025,
                     p.first,
@@ -102,18 +93,38 @@ DeviceClientFactory::DeviceClientFactory(
                     NanoSeconds(proc_time_const_ns),
                     NanoSeconds(proc_time_mean_ns),
                     NanoSeconds(proc_time_std_dev_ns)
-            );
-            source.SetAttribute("Interval", TimeValue(NanoSeconds(interval_ns)));
+                );
+                source.SetAttribute("Interval", TimeValue(NanoSeconds(interval_ns)));
+    
+                // Install it on the node and start it right now
+                ApplicationContainer app = source.Install(nodes.Get(p.first));
+                app.Start(Time(0.));
+                m_apps.push_back(app);
+            }
+        } else {
+            std::set<std::string> devices_receive_endpoints = 
+                parse_set_string(basicSimulation->GetConfigParamOrFail("devices_receive_endpoints"));
 
-            // Install it on the node and start it right now
-            ApplicationContainer app = source.Install(nodes.Get(p.first));
-            // app.Start(NanoSeconds(counter * in_between_ns));
-            app.Start(Time(0.));
-            m_apps.push_back(app);
-            // std::cout << "    >> Client " << p.first << "->" << p.second << " will start with " << (counter*in_between_ns) << "ns delay" << std::endl;
-            
-            // counter++;
+            // Install sockets on clients for receiving messages.
+            std::cout << "  > Setting up " << devices_receive_endpoints.size() << " device clients (receive only)" << std::endl;
+
+            for (const std::string& drep : devices_receive_endpoints) {
+
+                uint64_t node_id = parse_positive_int64(drep);
+
+                // Helper to install the source application
+                DeviceClientHelper source(
+                    node_id,
+                    receive_callback
+                );
+    
+                // Install it on the node and start it right now
+                ApplicationContainer app = source.Install(nodes.Get(node_id));
+                app.Start(Time(0.));
+                m_apps.push_back(app);
+            }            
         }
+
         m_basicSimulation->RegisterTimestamp("Setup device clients");
 
     }
@@ -128,7 +139,7 @@ void DeviceClientFactory::WriteResults() {
     if (!m_enabled) {
         std::cout << "  > Not enabled, so no device results are written" << std::endl;
 
-    } else {
+    } else if (m_send_data) {
 
         // Open files
         std::cout << "  > Opening log files:" << std::endl;
@@ -138,7 +149,8 @@ void DeviceClientFactory::WriteResults() {
         std::cout << "    >> Opened: " << m_device_txt_filename << std::endl;
 
         // Header
-        std::cout << "  > Writing " << m_device_txt_filename << std::endl;
+        fprintf(file_csv,
+                "from_node_id,to_node_id,n_msg,send_request_timestamps,reply_timestamps,receive_reply_timestamps,latency_to_there_ns,latency_from_there_ns,rtt_ns,reply_arrived");
         fprintf(file_txt, "%-10s%-10s%-22s%-22s%-16s%-16s%-16s%-16s%s\n",
                 "Source", "Target", "Mean latency there", "Mean latency back",
                 "Min. RTT", "Mean RTT", "Max. RTT", "Smp.std. RTT", "Reply arrival");

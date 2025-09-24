@@ -23,7 +23,13 @@ public:
     Time processing_time_const = Seconds(0), 
     Time processing_time_mean = MilliSeconds(1), 
     Time processing_time_std_dev = MicroSeconds(50));
+
+  DeviceClientHelper (
+    uint64_t from_node_id,
+    MessageReceiveCallbackType receive_callback);
+
   void SetAttribute (std::string name, const AttributeValue &value);
+
   ApplicationContainer Install (Ptr<Node> node) const;
 
 private:

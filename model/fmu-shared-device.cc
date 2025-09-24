@@ -47,6 +47,26 @@ namespace ns3 {
                           UintegerValue(0),
                           MakeUintegerAccessor(&FmuSharedDevice::m_nodeId),
                           MakeUintegerChecker<uint64_t>())
+            .AddAttribute("SendData",
+                          "Flag to indicate if data should be sent.",
+                          BooleanValue(false),
+                          MakeBooleanAccessor(&FmuSharedDevice::m_sendData),
+                          MakeBooleanChecker())
+            .AddAttribute("SendInterval",
+                          "The time to wait between sending packets",
+                          TimeValue(Seconds(1.0)),
+                          MakeTimeAccessor(&FmuSharedDevice::m_sendInterval),
+                          MakeTimeChecker())
+            .AddAttribute("RemoteAddress",
+                          "The destination address of the outbound packets",
+                          AddressValue(),
+                          MakeAddressAccessor(&FmuSharedDevice::m_peerAddress),
+                          MakeAddressChecker())
+            .AddAttribute("RemotePort",
+                          "The destination port of the outbound packets",
+                          UintegerValue(0),
+                          MakeUintegerAccessor(&FmuSharedDevice::m_peerPort),
+                          MakeUintegerChecker<uint16_t>())
             .AddAttribute("ModelIdentifier", "FMU model identifier.",
                           StringValue(),
                           MakeStringAccessor(&FmuSharedDevice::m_modelIdentifier),
@@ -136,18 +156,18 @@ namespace ns3 {
         }
     }
 
-    string
-    FmuSharedDevice::stepFmu(const std::string& payload, const double& t) {
+    Payload
+    FmuSharedDevice::stepFmu(const std::string& payload, uint32_t payloadId, bool isReply, const double& t) {
         // Lock the FMU's mutex to avoid race conditions.
         // This should not be necessary, but better safe than sorry ...
         m_fmu->lock();
         
-        string msg = m_doStepCallback(m_fmu, m_nodeId, payload, t, m_commStepSizeInS);
+        Payload pl = m_doStepCallback(m_fmu, m_nodeId, payload, payloadId, isReply, t, m_commStepSizeInS);
         
         // Unlock the FMU's mutex.
         m_fmu->unlock();
 
-        return msg;
+        return pl;
     }
 
 } // Namespace ns3

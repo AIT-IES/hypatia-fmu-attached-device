@@ -82,11 +82,13 @@ def build(bld):
         'model/device-client.cc',
         'model/fmu-attached-device.cc',
         'model/fmu-shared-device.cc',
+        'model/payload.cc',
         'model/processing-time.cc',
+        'helper/device-client-factory.cc',
+        'helper/device-client-helper.cc',
+        'helper/factory-util.cc',
         'helper/fmu-attached-device-factory.cc',
         'helper/fmu-shared-device-factory.cc',
-        'helper/device-client-helper.cc',
-        'helper/device-client-factory.cc',
         ]
 
     # module_test = bld.create_ns3_module_test_library('fmu-attached-device')
@@ -100,9 +102,11 @@ def build(bld):
         'model/device-client.h',
         'model/fmu-attached-device.h',
         'model/fmu-shared-device.h',
+        'model/payload.h',
         'model/processing-time.h',
         'helper/device-client-factory.h',
         'helper/device-client-helper.h',
+        # 'helper/factory-util.h',
         'helper/fmu-attached-device-factory.h',
         'helper/fmu-shared-device-factory.h',
         'helper/fmu-device-helper.h',

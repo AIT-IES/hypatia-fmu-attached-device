@@ -120,6 +120,9 @@ In the FMU config files, the following properties are expected:
 + *fmu_res_write_period_in_s*: period in seconds for writing of FMU model results (double)
 + *fmu_res_filename*: file name for FMU model results
 + *fmu_res_varnames*: names of FMU model variables to be written to results file (list of strings)
++ *send_data*: enable sending of data to client devices; turned off by default (boolean)
++ *send_data_interval_s*: interval in s for sending data (double)
++ *send_data_endpoint*: client endpoint node ID for sending data (integer)
 
 Example FMU config file snippet:
 ``` properties
@@ -153,10 +156,10 @@ fmu_config_files=map(example_shared_devices:shared-fmu.properties)
 example_shared_devices=set(1251,1252)
 ```
 
-In the FMU config files, class `FmuSharedDeviceFactory` expects the same properties as class `FMUAttachedDeviceFactory`.
+In the FMU config files, class `FmuSharedDeviceFactory` expects the same properties as class `FMUAttachedDeviceFactory` (except property *send_data_endpoint*, which is not supported).
 In addition, it expects the following property:
-+ *shared_instance_name*: Common name of the shared FMU instance (string)
-
++ *shared_instance_name*: common name of the shared FMU instance (string)
++ *send_data_endpoints*: list of client endpoint node IDs for sending data (set of strings of the form *"[device-id]->[client-id]"*)
 
 ### Class `DeviceClientFactory`
 
@@ -170,6 +173,11 @@ In the simulation config file (`config_ns3.properties`), the following propertie
 + *send_devices_endpoint_pairs*: set of node IDs defining pairs of clients and devices (set of strings of the form *"[client-id]->[device-id]"*)
 + *send_devices_processing_time_mean_ns*: average of processing time of clients in nanoseconds (double)
 + *send_devices_processing_time_std_dev_ns*: standard deviation of processing time of clients in nanoseconds (double)
+
+Clients can also be installed in *listen-only mode*:
+
++ *send_devices*: when setting this to false, the client will be deployed in listen-only mode (boolean)
++ *devices_receive_endpoints*: when in listen-only mode, this determines the node IDs on which the clients will be installed; all other properties (*send_devices_interval_ns*, *send_devices_endpoint_pairs*, etc.) will be ignored (set of strings)
 
 Example simulation config file snippet:
 ``` properties

@@ -17,7 +17,7 @@ public:
 
 private:
   virtual void initFmu();
-  virtual std::string stepFmu(const std::string& payload, const double& t);
+  virtual Payload stepFmu(const std::string& payload, uint32_t payloadId, bool isReply, const double& t);
 
   std::string m_sharedFmuInstanceName;
 
