@@ -251,7 +251,9 @@ namespace ns3 {
     FmuAttachedDevice::Process(void) {
         NS_LOG_FUNCTION(this << " - start processing at " << Simulator::Now());
         NS_ABORT_MSG_UNLESS(m_processEvent.IsExpired(), "Previous processing has not finished yet.");
-        NS_ABORT_MSG_UNLESS(m_sendEvent.IsExpired(), "Previous message has not been sent yet.");
+        if (!m_sendEvent.IsExpired()) {
+            NS_LOG_WARN("Send event not expired: "  << m_sendEvent.GetTs());
+        }
 
         double t = Simulator::Now().GetSeconds();
         Payload pl = stepFmu("", Payload::INVALID, false, t);
