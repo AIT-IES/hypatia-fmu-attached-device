@@ -226,7 +226,7 @@ DeviceClient::HandleRead(Ptr <Socket> socket) {
         uint8_t *buffer = new uint8_t[packet->GetSize ()];
         packet->CopyData(buffer, packet->GetSize ());
         string s = string(buffer, buffer+packet->GetSize());
-        m_msgReceiveCallback(s, payloadId, isReply, m_fromNodeId, m_toNodeId);
+        m_msgReceiveCallback(s, payloadId, isReply, m_fromNodeId, (isReply ? m_toNodeId : -1));
         NS_LOG_DEBUG ("Buffer: size = " << packet->GetSize() << " - content = >>" << s << "<<");
         delete buffer;
     }
