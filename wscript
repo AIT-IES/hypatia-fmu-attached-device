@@ -106,7 +106,7 @@ def build(bld):
         'model/processing-time.h',
         'helper/device-client-factory.h',
         'helper/device-client-helper.h',
-        # 'helper/factory-util.h',
+        'helper/factory-util.h',
         'helper/fmu-attached-device-factory.h',
         'helper/fmu-shared-device-factory.h',
         'helper/fmu-device-helper.h',
