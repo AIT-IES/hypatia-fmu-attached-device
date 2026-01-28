@@ -35,4 +35,20 @@ parse_endpoint_pairs(
     return endpoint_pairs;
 }
 
+Time::Unit
+parse_time_unit(const std::string& time_unit_str) {
+    if (time_unit_str == "S") {
+        return Time::S;
+    } else if (time_unit_str == "MS") {
+        return Time::MS;
+    } else if (time_unit_str == "US") {
+        return Time::US;
+    } else if (time_unit_str == "NS") {
+        return Time::NS;
+    } else {
+        NS_ABORT_MSG("Unsupported time unit string: " + time_unit_str);
+        return Time::S; // to suppress compiler warning
+    }
+}
+
 }

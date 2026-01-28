@@ -22,7 +22,8 @@ public:
     MessageSendCallbackType send_callback, MessageReceiveCallbackType receive_callback,
     Time processing_time_const = Seconds(0), 
     Time processing_time_mean = MilliSeconds(1), 
-    Time processing_time_std_dev = MicroSeconds(50));
+    Time processing_time_std_dev = MicroSeconds(50),
+    Time::Unit processing_time_base = Time::MS);
 
   DeviceClientHelper (
     uint64_t from_node_id,

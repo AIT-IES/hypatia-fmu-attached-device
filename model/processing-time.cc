@@ -14,7 +14,7 @@ NS_LOG_COMPONENT_DEFINE ("ProcessingTime");
 int64_t ProcessingTime::m_nextStreamId = 4611686018427387904;
 
 ProcessingTime::ProcessingTime(
-    Time constant, Time mean, Time stdDev
+    Time constant, Time mean, Time stdDev, Time::Unit unit
 ) {
     // Get mean and standard deviation in seconds.
     double c = constant.GetSeconds();
@@ -31,9 +31,11 @@ ProcessingTime::ProcessingTime(
         // Constant factor.
         m_constant = c;
 
+        double timeBaseFactor = getTimeBaseFactor(unit);
+
         // Calculate parameters of gamma distribution.
-        double alpha =  m * m / s / s;
-        double beta = s * s / m;
+        double alpha =  m * m / s * timeBaseFactor;
+        double beta = s / m / timeBaseFactor;
 
         NS_LOG_DEBUG("init gamma distribution with alpha = " << alpha << " and beta = " << beta);
 

@@ -1,5 +1,6 @@
 #include "fmu-attached-device-factory.h"
 #include "fmu-device-helper.h"
+#include "factory-util.h"
 
 #include "ns3/exp-util.h"
 
@@ -107,6 +108,7 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
             double proc_time_const_ns = parse_positive_double(get_param_or_fail("processing_time_const_ns", fmuConfig));
             double proc_time_mean_ns = parse_positive_double(get_param_or_fail("processing_time_mean_ns", fmuConfig));
             double proc_time_std_dev_ns = parse_positive_double(get_param_or_fail("processing_time_std_dev_ns", fmuConfig));
+            Time::Unit proc_time_base = parse_time_unit(get_param_or_default("processing_time_base", "MS", fmuConfig));
 
             string fmuDirUri = getFileUriFromPath(fmuDirAbs);
             ModelManager::LoadFMUStatus status = ModelManager::failed;
@@ -121,7 +123,8 @@ FmuAttachedDeviceFactory::initFmuDeviceFactory(Ptr<BasicSimulation> basicSimulat
             // Helper to install the application.
             FmuDeviceHelper<FmuAttachedDevice> fmuDevice(1025, endpoint, modelIdentifier, fmuStartTimeInS, 
                 fmuCommStepSizeInS, loggingOn, initCallback, doStepCallback,
-                NanoSeconds(proc_time_const_ns), NanoSeconds(proc_time_mean_ns), NanoSeconds(proc_time_std_dev_ns));
+                NanoSeconds(proc_time_const_ns), NanoSeconds(proc_time_mean_ns),
+                NanoSeconds(proc_time_std_dev_ns), proc_time_base);
 
             printf("    >> FMU instance successfully attached to device\n");
 

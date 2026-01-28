@@ -16,7 +16,7 @@ class ProcessingTime : public Object {
  **/
 public:
     
-    ProcessingTime(Time constant, Time mean, Time stdDev);
+    ProcessingTime(Time constant, Time mean, Time stdDev, Time::Unit timeBase = Time::MS);
     ~ProcessingTime() {}
     
     Time GetValue() const;
@@ -25,6 +25,18 @@ public:
     
 private:
     
+    static double  getTimeBaseFactor(Time::Unit unit) {
+        switch (unit) {
+            case Time::NS: return 1e9;
+            case Time::US: return 1e6;
+            case Time::MS: return 1e3;
+            case Time::S:  return 1.0;
+            default:
+                NS_ABORT_MSG("Unsupported Time::Unit");
+                return 1.0;
+        }
+    }
+
     static int64_t getNextStreamId() { return m_nextStreamId++; }
     static int64_t m_nextStreamId;
 

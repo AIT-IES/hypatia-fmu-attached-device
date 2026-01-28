@@ -1,5 +1,6 @@
 #include "device-client-helper.h"
 #include "ns3/boolean.h"
+#include "ns3/enum.h"
 #include "ns3/integer.h"
 #include "ns3/uinteger.h"
 #include "ns3/names.h"
@@ -11,7 +12,8 @@ namespace ns3 {
 DeviceClientHelper::DeviceClientHelper (
   Address address, uint16_t port, uint64_t from_node_id, uint64_t to_node_id, 
   MessageSendCallbackType send_callback, MessageReceiveCallbackType receive_callback,
-  Time processing_time_const, Time processing_time_mean, Time processing_time_std_dev
+  Time processing_time_const, Time processing_time_mean,
+  Time processing_time_std_dev, Time::Unit processing_time_base
 ) {
   m_factory.SetTypeId (DeviceClient::GetTypeId ());
   SetAttribute ("RemoteAddress", AddressValue (address));
@@ -23,6 +25,7 @@ DeviceClientHelper::DeviceClientHelper (
   SetAttribute ("ProcessingTimeConstant", TimeValue (processing_time_const));
   SetAttribute ("ProcessingTimeMean", TimeValue (processing_time_mean));
   SetAttribute ("ProcessingTimeStdDev", TimeValue (processing_time_std_dev));
+  SetAttribute ("ProcessingTimeBase", EnumValue (processing_time_base));
 }
 
 DeviceClientHelper::DeviceClientHelper (

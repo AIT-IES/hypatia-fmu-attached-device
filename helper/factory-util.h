@@ -13,6 +13,10 @@ namespace ns3 {
         Ptr<Topology> topology
     );
 
+    /// @brief Parse a time unit string into Time::Unit
+    Time::Unit
+    parse_time_unit(const std::string& time_unit_str);
+
 }
 
 #endif // FACTORY_UTIL_H

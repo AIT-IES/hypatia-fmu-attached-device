@@ -13,6 +13,7 @@
 #include "ns3/double.h"
 #include "ns3/string.h"
 #include "ns3/boolean.h"
+#include "ns3/enum.h"
 #include "ns3/exp-util.h"
 #include "ns3/fmu-util.h"
 
@@ -125,7 +126,12 @@ namespace ns3 {
                           "Standard deviation of stochastic term of processing time",
                           TimeValue(MicroSeconds(50)),
                           MakeTimeAccessor(&FmuAttachedDevice::m_processingTimeStdDev),
-                          MakeTimeChecker());
+                          MakeTimeChecker())
+            .AddAttribute("ProcessingTimeBase",
+                          "Time base of stochastic term of processing time",
+                          EnumValue(Time::MS),
+                          MakeEnumAccessor(&FmuAttachedDevice::m_processingTimeBase),
+                          MakeEnumChecker(Time::S, "S", Time::MS, "MS", Time::US, "US", Time::NS, "NS"));
         return tid;
     }
 
@@ -136,6 +142,7 @@ namespace ns3 {
         m_writeDataEvent = EventId();
         m_sendEvent = EventId();
         m_processEvent = EventId();
+        m_processingTimeBase = Time::MS;
         m_processingTime = 0;
     }
 
@@ -212,7 +219,9 @@ namespace ns3 {
 
         m_socket->SetRecvCallback(MakeCallback(&FmuAttachedDevice::HandleRead, this));
 
-        m_processingTime = CreateObject<ProcessingTime>(m_processingTimeConstant, m_processingTimeMean, m_processingTimeStdDev);
+        m_processingTime = CreateObject<ProcessingTime>(
+            m_processingTimeConstant, m_processingTimeMean, m_processingTimeStdDev, m_processingTimeBase
+        );
 
         if (m_sendData) {
             ScheduleProcessing(Seconds(0));

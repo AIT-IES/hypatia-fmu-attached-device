@@ -21,21 +21,24 @@ public:
     const double& startTime, const double& commStepSize, bool loggingOn,
     Time processing_time_const = Seconds(0), 
     Time processing_time_mean = MilliSeconds(1), 
-    Time processing_time_std_dev = MicroSeconds(50));
+    Time processing_time_std_dev = MicroSeconds(50),
+    Time::Unit processing_time_base = Time::MS);
 
   FmuDeviceHelper (uint16_t port, uint16_t nodeId, const std::string& modelIdentifier,
     const double& startTime, const double& commStepSize, bool loggingOn, 
     DoStepCallbackType doStepCallback,
     Time processing_time_const = Seconds(0), 
     Time processing_time_mean = MilliSeconds(1), 
-    Time processing_time_std_dev = MicroSeconds(50));
+    Time processing_time_std_dev = MicroSeconds(50),
+    Time::Unit processing_time_base = Time::MS);
 
   FmuDeviceHelper (uint16_t port, uint16_t nodeId, const std::string& modelIdentifier,
     const double& startTime, const double& commStepSize, bool loggingOn, 
     InitCallbackType initCallback, DoStepCallbackType doStepCallback,
     Time processing_time_const = Seconds(0), 
     Time processing_time_mean = MilliSeconds(1), 
-    Time processing_time_std_dev = MicroSeconds(50));
+    Time processing_time_std_dev = MicroSeconds(50),
+    Time::Unit processing_time_base = Time::MS);
 
   void SetAttribute (std::string name, const AttributeValue &value);
   ApplicationContainer Install (Ptr<Node> node) const;
@@ -50,7 +53,8 @@ template <class FmuDeviceType>
 FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   uint16_t port, uint16_t nodeId, const std::string& modelIdentifier, 
   const double& startTime, const double& commStepSize, bool loggingOn,
-  Time processing_time_const, Time processing_time_mean, Time processing_time_std_dev
+  Time processing_time_const, Time processing_time_mean, 
+  Time processing_time_std_dev, Time::Unit processing_time_base
 ) {
   m_factory.SetTypeId (FmuDeviceType::GetTypeId ());
   SetAttribute ("Port", UintegerValue (port));
@@ -62,6 +66,7 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   SetAttribute ("ProcessingTimeConstant", TimeValue (processing_time_const));
   SetAttribute ("ProcessingTimeMean", TimeValue (processing_time_mean));
   SetAttribute ("ProcessingTimeStdDev", TimeValue (processing_time_std_dev));
+  SetAttribute ("ProcessingTimeBase", EnumValue (processing_time_base));
 }
 
 template <class FmuDeviceType>
@@ -69,7 +74,8 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   uint16_t port, uint16_t nodeId, const std::string& modelIdentifier, 
   const double& startTime, const double& commStepSize, bool loggingOn, 
   DoStepCallbackType doStepCallback,
-  Time processing_time_const, Time processing_time_mean, Time processing_time_std_dev
+  Time processing_time_const, Time processing_time_mean, 
+  Time processing_time_std_dev, Time::Unit processing_time_base
 ) {
   m_factory.SetTypeId (FmuDeviceType::GetTypeId ());
   SetAttribute ("Port", UintegerValue (port));
@@ -82,6 +88,7 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   SetAttribute ("ProcessingTimeConstant", TimeValue (processing_time_const));
   SetAttribute ("ProcessingTimeMean", TimeValue (processing_time_mean));
   SetAttribute ("ProcessingTimeStdDev", TimeValue (processing_time_std_dev));
+  SetAttribute ("ProcessingTimeBase", EnumValue (processing_time_base));
 }
 
 template <class FmuDeviceType>
@@ -89,7 +96,8 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   uint16_t port, uint16_t nodeId, const std::string& modelIdentifier, 
   const double& startTime, const double& commStepSize, bool loggingOn, 
   InitCallbackType initCallback, DoStepCallbackType doStepCallback,
-  Time processing_time_const, Time processing_time_mean, Time processing_time_std_dev
+  Time processing_time_const, Time processing_time_mean, 
+  Time processing_time_std_dev, Time::Unit processing_time_base
 ) {
   m_factory.SetTypeId (FmuDeviceType::GetTypeId ());
   SetAttribute ("Port", UintegerValue (port));
@@ -103,6 +111,7 @@ FmuDeviceHelper<FmuDeviceType>::FmuDeviceHelper (
   SetAttribute ("ProcessingTimeConstant", TimeValue (processing_time_const));
   SetAttribute ("ProcessingTimeMean", TimeValue (processing_time_mean));
   SetAttribute ("ProcessingTimeStdDev", TimeValue (processing_time_std_dev));
+  SetAttribute ("ProcessingTimeBase", EnumValue (processing_time_base));
 }
 
 template <class FmuDeviceType>

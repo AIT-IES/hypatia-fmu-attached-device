@@ -79,6 +79,8 @@ DeviceClientFactory::DeviceClientFactory(
                 parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_mean_ns"));
             double proc_time_std_dev_ns = 
                 parse_positive_double(m_basicSimulation->GetConfigParamOrFail("send_devices_processing_time_std_dev_ns"));
+            Time::Unit proc_time_base = 
+                parse_time_unit(m_basicSimulation->GetConfigParamOrDefault("send_devices_processing_time_base", "MS"));
 
             for (std::pair<int64_t, int64_t>& p : endpoint_pairs) {
 
@@ -92,7 +94,8 @@ DeviceClientFactory::DeviceClientFactory(
                     receive_callback,
                     NanoSeconds(proc_time_const_ns),
                     NanoSeconds(proc_time_mean_ns),
-                    NanoSeconds(proc_time_std_dev_ns)
+                    NanoSeconds(proc_time_std_dev_ns),
+                    proc_time_base
                 );
                 source.SetAttribute("Interval", TimeValue(NanoSeconds(interval_ns)));
     

@@ -72,6 +72,7 @@ private:
   Time m_processingTimeConstant; //!< Constant term of processing time.
   Time m_processingTimeMean; //!< Average of stochastic term of processing time.
   Time m_processingTimeStdDev; //!< Standard deviation of stochastic term of processing time.
+  Time::Unit m_processingTimeBase; //!< Time base of stochastic term of processing time.
   Ptr<ProcessingTime> m_processingTime;
 
   MessageSendCallbackType m_msgSendCallback;

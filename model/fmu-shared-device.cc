@@ -13,6 +13,7 @@
 #include "ns3/double.h"
 #include "ns3/string.h"
 #include "ns3/boolean.h"
+#include "ns3/enum.h"
 #include "ns3/exp-util.h"
 #include "ns3/fmu-util.h"
 
@@ -132,7 +133,12 @@ namespace ns3 {
                           "Standard deviation of stochastic term of processing time",
                           TimeValue(MicroSeconds(50)),
                           MakeTimeAccessor(&FmuSharedDevice::m_processingTimeStdDev),
-                          MakeTimeChecker());
+                          MakeTimeChecker())
+            .AddAttribute("ProcessingTimeBase",
+                          "Time base of stochastic term of processing time",
+                          EnumValue(Time::MS),
+                          MakeEnumAccessor(&FmuSharedDevice::m_processingTimeBase),
+                          MakeEnumChecker(Time::S, "S", Time::MS, "MS", Time::US, "US", Time::NS, "NS"));
         return tid;
     }
 

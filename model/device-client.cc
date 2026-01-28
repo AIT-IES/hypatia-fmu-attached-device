@@ -9,9 +9,10 @@
 #include "ns3/socket-factory.h"
 #include "ns3/packet.h"
 #include "ns3/boolean.h"
+#include "ns3/enum.h"
 #include "ns3/integer.h"
 #include "ns3/uinteger.h"
-#include "ns3/trace-source-accessor.h"
+// #include "ns3/trace-source-accessor.h"
 #include "device-client.h"
 
 using namespace std;
@@ -82,7 +83,13 @@ DeviceClient::GetTypeId(void) {
                       "Standard deviation of stochastic term of processing time",
                       TimeValue(MicroSeconds(50)),
                       MakeTimeAccessor(&DeviceClient::m_processingTimeStdDev),
-                      MakeTimeChecker());
+                      MakeTimeChecker())
+        .AddAttribute("ProcessingTimeBase",
+                      "Time base of stochastic term of processing time",
+                      EnumValue(Time::MS),
+                      MakeEnumAccessor(&DeviceClient::m_processingTimeBase),
+                      MakeEnumChecker(Time::S, "S", Time::MS, "MS", Time::US, "US", Time::NS, "NS"));
+
     return tid;
 }
 
@@ -94,6 +101,7 @@ DeviceClient::DeviceClient() {
     m_sendEvent = EventId();
     m_msgSendCallback = MakeCallback(&DeviceClient::defaultSendCallbackImpl);
     m_msgReceiveCallback = MakeCallback(&DeviceClient::defaultReceiveCallbackImpl);
+    m_processingTimeBase = Time::MS;
     m_processingTime = 0;
 }
 
@@ -138,7 +146,7 @@ DeviceClient::StartApplication(void) {
     m_socket->SetRecvCallback(MakeCallback(&DeviceClient::HandleRead, this));
     m_socket->SetAllowBroadcast(true);
 
-    m_processingTime = CreateObject<ProcessingTime>(m_processingTimeConstant, m_processingTimeMean, m_processingTimeStdDev);
+    m_processingTime = CreateObject<ProcessingTime>(m_processingTimeConstant, m_processingTimeMean, m_processingTimeStdDev, m_processingTimeBase);
 }
 
 void
@@ -162,7 +170,9 @@ void
 DeviceClient::Process(void) {
     NS_LOG_FUNCTION(this << " - start processing at " << Simulator::Now());
     NS_ABORT_MSG_UNLESS(m_processEvent.IsExpired(), "Previous processing has not finished yet.");
-    NS_ABORT_MSG_UNLESS(m_sendEvent.IsExpired(), "Previous message has not been sent yet.");
+    if (!m_sendEvent.IsExpired()) {
+        NS_LOG_WARN("Send event not expired: "  << m_sendEvent.GetTs());
+    }
 
     // Packet with message and timestamp.
     const Payload& pl = m_msgSendCallback(m_fromNodeId, m_toNodeId);
